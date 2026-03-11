@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -6,10 +7,10 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parent
-SUMMARY_PATH = ROOT / "Cifar10_FedAvg_heterogeneity_summary.csv"
-FIG_PNG_PATH = ROOT / "heterogeneity_paper_figure.png"
-FIG_PDF_PATH = ROOT / "heterogeneity_paper_figure.pdf"
-TABLE_TEX_PATH = ROOT / "heterogeneity_paper_table.tex"
+DEFAULT_SUMMARY_PATH = ROOT / "Cifar10_FedAvg_heterogeneity_summary.csv"
+DEFAULT_FIG_PNG_PATH = ROOT / "heterogeneity_paper_figure.png"
+DEFAULT_FIG_PDF_PATH = ROOT / "heterogeneity_paper_figure.pdf"
+DEFAULT_TABLE_TEX_PATH = ROOT / "heterogeneity_paper_table.tex"
 
 LEVEL_ORDER = ["mild", "moderate", "severe"]
 METHOD_ORDER = ["fu", "fedau", "fedcsa", "fedosd", "retrain"]
@@ -29,8 +30,23 @@ METHOD_COLORS = {
 }
 
 
-def prepare_dataframe():
-    df = pd.read_csv(SUMMARY_PATH)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate publication-ready figure/table assets from a heterogeneity summary CSV.")
+    parser.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY_PATH)
+    parser.add_argument("--figure-png", type=Path, default=DEFAULT_FIG_PNG_PATH)
+    parser.add_argument("--figure-pdf", type=Path, default=DEFAULT_FIG_PDF_PATH)
+    parser.add_argument("--table", type=Path, default=DEFAULT_TABLE_TEX_PATH)
+    parser.add_argument("--title", type=str, default="Comparison Under Mild, Moderate, and Severe Heterogeneity")
+    parser.add_argument(
+        "--caption",
+        type=str,
+        default="Results under different heterogeneity levels on CIFAR-10. Lower target accuracy, MIA AUC, and backdoor accuracy indicate stronger forgetting/privacy protection, while higher average accuracy indicates better utility retention.",
+    )
+    return parser.parse_args()
+
+
+def prepare_dataframe(summary_path):
+    df = pd.read_csv(summary_path)
     df["level"] = pd.Categorical(df["level"], categories=LEVEL_ORDER, ordered=True)
     df["method"] = pd.Categorical(df["method"], categories=METHOD_ORDER, ordered=True)
     df["display_name"] = df["method"].map(METHOD_LABELS)
@@ -39,7 +55,7 @@ def prepare_dataframe():
     return df.sort_values(["level", "method"]).reset_index(drop=True)
 
 
-def make_figure(df):
+def make_figure(df, fig_png_path, fig_pdf_path, title):
     x = np.arange(len(LEVEL_ORDER))
     width = 0.16
     offsets = np.linspace(-2, 2, len(METHOD_ORDER)) * width
@@ -79,17 +95,17 @@ def make_figure(df):
 
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, ncol=5, loc="upper center", bbox_to_anchor=(0.5, 1.03), frameon=False)
-    fig.suptitle("Comparison Under Mild, Moderate, and Severe Heterogeneity", fontsize=13, y=1.07)
-    fig.savefig(FIG_PNG_PATH, dpi=300, bbox_inches="tight")
-    fig.savefig(FIG_PDF_PATH, bbox_inches="tight")
+    fig.suptitle(title, fontsize=13, y=1.07)
+    fig.savefig(fig_png_path, dpi=300, bbox_inches="tight")
+    fig.savefig(fig_pdf_path, bbox_inches="tight")
     plt.close(fig)
 
 
-def make_latex_table(df):
+def make_latex_table(df, table_tex_path, caption):
     lines = [
         "\\begin{table*}[t]",
         "\\centering",
-        "\\caption{Results under different heterogeneity levels on CIFAR-10. Lower target accuracy, MIA AUC, and backdoor accuracy indicate stronger forgetting/privacy protection, while higher average accuracy indicates better utility retention.}",
+        f"\\caption{{{caption}}}",
         "\\label{tab:heterogeneity_results}",
         "\\begin{tabular}{llccccc}",
         "\\toprule",
@@ -118,16 +134,17 @@ def make_latex_table(df):
         "\\end{table*}",
     ])
 
-    TABLE_TEX_PATH.write_text("\n".join(lines), encoding="utf-8")
+    table_tex_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def main():
-    df = prepare_dataframe()
-    make_figure(df)
-    make_latex_table(df)
-    print(f"Figure written to: {FIG_PNG_PATH}")
-    print(f"Figure written to: {FIG_PDF_PATH}")
-    print(f"LaTeX table written to: {TABLE_TEX_PATH}")
+    args = parse_args()
+    df = prepare_dataframe(args.summary)
+    make_figure(df, args.figure_png, args.figure_pdf, args.title)
+    make_latex_table(df, args.table, args.caption)
+    print(f"Figure written to: {args.figure_png}")
+    print(f"Figure written to: {args.figure_pdf}")
+    print(f"LaTeX table written to: {args.table}")
 
 
 if __name__ == "__main__":

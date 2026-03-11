@@ -175,6 +175,7 @@ def save_experiment_config(args, seed):
         "fu_similarity_boost": getattr(args, "fu_similarity_boost", None),
         "fu_select_best_recovery": getattr(args, "fu_select_best_recovery", None),
         "fu_recovery_target_penalty": getattr(args, "fu_recovery_target_penalty", None),
+        "fu_recovery_lr_scale": getattr(args, "fu_recovery_lr_scale", None),
         "protection_level": getattr(args, "protection_level", None)
     }
     
@@ -1152,28 +1153,86 @@ def run(args):
                 
                 # 使用遗忘后的模型进行恢复训练
                 server.global_model = global_model_forget
-                recovery_results = server.recovery_training(target_client_id=args.target_client_id, recovery_rounds=recovery_rounds)
-                
-                # 保存恢复后的模型
-                recovery_model_save_path = build_result_artifact_path("recovery_model", args, "pt")
-                torch.save(server.global_model, recovery_model_save_path)
-                print(f"恢复后模型已保存到: {recovery_model_save_path}")
-                
-                # 恢复后评估
-                print("\n============= 恢复后评估 =============")
-                recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = evaluate_on_all_clients(
-                    server.global_model, server.clients, "恢复后评估", server=server)
-                
-                # 保存恢复后评估结果
-                save_evaluation_results(recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc, 
-                                      "post_recovery", args)
-                
-                # 计算恢复效果
-                recovery_effect = recovery_avg_acc - post_avg_acc
-                print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
-                
-                # 更新最终模型
-                global_model_forget = server.global_model
+                use_fu_adaptive_recovery = (
+                    args.forget_strategy == "gradient_reversal"
+                    and getattr(args, "fu_select_best_recovery", True)
+                )
+                post_forget_snapshot = capture_server_recovery_snapshot(server)
+                recovery_results = server.recovery_training(
+                    target_client_id=args.target_client_id,
+                    recovery_rounds=recovery_rounds,
+                    capture_snapshots=use_fu_adaptive_recovery,
+                    lr_scale=getattr(args, "fu_recovery_lr_scale", 1.0),
+                )
+
+                if use_fu_adaptive_recovery:
+                    best_candidate = select_best_fu_recovery_candidate(
+                        server,
+                        args,
+                        post_accs,
+                        (post_accs, post_aucs, post_avg_acc, post_avg_auc, post_std_acc, post_std_auc),
+                        recovery_results,
+                    )
+                    if best_candidate is not None and best_candidate["snapshot"] is not None:
+                        restore_server_recovery_snapshot(server, best_candidate["snapshot"], args.device)
+                        recovery_rounds = best_candidate["round"]
+                        recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = best_candidate["metrics"]
+                        recovery_effect = recovery_avg_acc - post_avg_acc
+                        method_recovery_stage = f"fu_adaptive_recovery_round_{best_candidate['round']}"
+                        print(
+                            f"FU自适应恢复选择第 {best_candidate['round']} 轮，"
+                            f"score={best_candidate['score']:.4f}"
+                        )
+
+                        recovery_model_save_path = build_result_artifact_path("recovery_model", args, "pt")
+                        torch.save(server.global_model, recovery_model_save_path)
+                        print(f"恢复后模型已保存到: {recovery_model_save_path}")
+
+                        save_evaluation_results(
+                            recovery_accs,
+                            recovery_aucs,
+                            recovery_avg_acc,
+                            recovery_avg_auc,
+                            recovery_std_acc,
+                            recovery_std_auc,
+                            "post_recovery",
+                            args,
+                        )
+                        print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
+                        global_model_forget = server.global_model
+                    else:
+                        restore_server_recovery_snapshot(server, post_forget_snapshot, args.device)
+                        recovery_rounds = 0
+                        recovery_results = []
+                        method_recovery_stage = "fu_adaptive_recovery_skipped"
+                        global_model_forget = server.global_model
+                        print("FU自适应恢复选择保留遗忘后模型，跳过外层恢复。")
+                else:
+                    # 保存恢复后的模型
+                    recovery_model_save_path = build_result_artifact_path("recovery_model", args, "pt")
+                    torch.save(server.global_model, recovery_model_save_path)
+                    print(f"恢复后模型已保存到: {recovery_model_save_path}")
+                    
+                    # 恢复后评估
+                    print("\n============= 恢复后评估 =============")
+                    recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = evaluate_on_all_clients(
+                        server.global_model, server.clients, "恢复后评估", server=server)
+                    
+                    # 保存恢复后评估结果
+                    save_evaluation_results(recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc, 
+                                          "post_recovery", args)
+                    
+                    # 计算恢复效果
+                    recovery_effect = recovery_avg_acc - post_avg_acc
+                    print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
+                    
+                    # 更新最终模型
+                    global_model_forget = server.global_model
+
+            recovery_results_for_summary = [
+                {key: value for key, value in result.items() if key != "snapshot"}
+                for result in recovery_results
+            ]
 
             # 保存遗忘效果汇总
             forget_summary = {
@@ -1189,7 +1248,10 @@ def run(args):
                 "recovery_triggered": recovery_rounds > 0,
                 "recovery_stage": (
                     method_recovery_stage
-                    if args.forget_strategy == "sifu" and method_recovery_stage
+                    if (
+                        (args.forget_strategy == "sifu" and method_recovery_stage)
+                        or (args.forget_strategy == "gradient_reversal" and method_recovery_stage)
+                    )
                     else
                     "internal_fedosd_post_training"
                     if args.forget_strategy == "fedosd" and skip_external_recovery
@@ -1202,7 +1264,7 @@ def run(args):
                 forget_summary["method_metadata"] = forget_result["metadata"]
             
             # 添加恢复结果
-            forget_summary["recovery_results"] = recovery_results
+            forget_summary["recovery_results"] = recovery_results_for_summary
             if recovery_accs is not None:
                 forget_summary["recovery_accs"] = recovery_accs
                 forget_summary["recovery_aucs"] = recovery_aucs
@@ -1526,28 +1588,86 @@ def run(args):
             
             # 使用遗忘后的模型进行恢复训练
             server.global_model = global_model_forget
-            recovery_results = server.recovery_training(target_client_id=args.target_client_id, recovery_rounds=recovery_rounds)
-            
-            # 保存恢复后的模型
-            recovery_model_save_path = build_result_artifact_path("recovery_model", args, "pt")
-            torch.save(server.global_model, recovery_model_save_path)
-            print(f"恢复后模型已保存到: {recovery_model_save_path}")
-            
-            # 恢复后评估
-            print("\n============= 恢复后评估 =============")
-            recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = evaluate_on_all_clients(
-                server.global_model, server.clients, "恢复后评估", server=server)
-            
-            # 保存恢复后评估结果
-            save_evaluation_results(recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc, 
-                                  "post_recovery", args)
-            
-            # 计算恢复效果
-            recovery_effect = recovery_avg_acc - post_avg_acc
-            print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
-            
-            # 更新最终模型
-            global_model_forget = server.global_model
+            use_fu_adaptive_recovery = (
+                args.forget_strategy == "gradient_reversal"
+                and getattr(args, "fu_select_best_recovery", True)
+            )
+            post_forget_snapshot = capture_server_recovery_snapshot(server)
+            recovery_results = server.recovery_training(
+                target_client_id=args.target_client_id,
+                recovery_rounds=recovery_rounds,
+                capture_snapshots=use_fu_adaptive_recovery,
+                lr_scale=getattr(args, "fu_recovery_lr_scale", 1.0),
+            )
+
+            if use_fu_adaptive_recovery:
+                best_candidate = select_best_fu_recovery_candidate(
+                    server,
+                    args,
+                    post_accs,
+                    (post_accs, post_aucs, post_avg_acc, post_avg_auc, post_std_acc, post_std_auc),
+                    recovery_results,
+                )
+                if best_candidate is not None and best_candidate["snapshot"] is not None:
+                    restore_server_recovery_snapshot(server, best_candidate["snapshot"], args.device)
+                    recovery_rounds = best_candidate["round"]
+                    recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = best_candidate["metrics"]
+                    recovery_effect = recovery_avg_acc - post_avg_acc
+                    method_recovery_stage = f"fu_adaptive_recovery_round_{best_candidate['round']}"
+                    print(
+                        f"FU自适应恢复选择第 {best_candidate['round']} 轮，"
+                        f"score={best_candidate['score']:.4f}"
+                    )
+
+                    recovery_model_save_path = build_result_artifact_path("recovery_model", args, "pt")
+                    torch.save(server.global_model, recovery_model_save_path)
+                    print(f"恢复后模型已保存到: {recovery_model_save_path}")
+
+                    save_evaluation_results(
+                        recovery_accs,
+                        recovery_aucs,
+                        recovery_avg_acc,
+                        recovery_avg_auc,
+                        recovery_std_acc,
+                        recovery_std_auc,
+                        "post_recovery",
+                        args,
+                    )
+                    print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
+                    global_model_forget = server.global_model
+                else:
+                    restore_server_recovery_snapshot(server, post_forget_snapshot, args.device)
+                    recovery_rounds = 0
+                    recovery_results = []
+                    method_recovery_stage = "fu_adaptive_recovery_skipped"
+                    global_model_forget = server.global_model
+                    print("FU自适应恢复选择保留遗忘后模型，跳过外层恢复。")
+            else:
+                # 保存恢复后的模型
+                recovery_model_save_path = build_result_artifact_path("recovery_model", args, "pt")
+                torch.save(server.global_model, recovery_model_save_path)
+                print(f"恢复后模型已保存到: {recovery_model_save_path}")
+                
+                # 恢复后评估
+                print("\n============= 恢复后评估 =============")
+                recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = evaluate_on_all_clients(
+                    server.global_model, server.clients, "恢复后评估", server=server)
+                
+                # 保存恢复后评估结果
+                save_evaluation_results(recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc, 
+                                      "post_recovery", args)
+                
+                # 计算恢复效果
+                recovery_effect = recovery_avg_acc - post_avg_acc
+                print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
+                
+                # 更新最终模型
+                global_model_forget = server.global_model
+
+        recovery_results_for_summary = [
+            {key: value for key, value in result.items() if key != "snapshot"}
+            for result in recovery_results
+        ]
 
         # 保存遗忘效果汇总
         forget_summary = {
@@ -1563,7 +1683,10 @@ def run(args):
             "recovery_triggered": recovery_rounds > 0,
             "recovery_stage": (
                 method_recovery_stage
-                if args.forget_strategy == "sifu" and method_recovery_stage
+                if (
+                    (args.forget_strategy == "sifu" and method_recovery_stage)
+                    or (args.forget_strategy == "gradient_reversal" and method_recovery_stage)
+                )
                 else
                 "internal_fedosd_post_training"
                 if args.forget_strategy == "fedosd" and skip_external_recovery
@@ -1576,7 +1699,7 @@ def run(args):
             forget_summary["method_metadata"] = forget_result["metadata"]
         
         # 添加恢复结果
-        forget_summary["recovery_results"] = recovery_results
+        forget_summary["recovery_results"] = recovery_results_for_summary
         if recovery_accs is not None:
             forget_summary["recovery_accs"] = recovery_accs
             forget_summary["recovery_aucs"] = recovery_aucs
@@ -1799,6 +1922,12 @@ if __name__ == "__main__":
                         help="Gradient scale kept on FU forget-mask parameters during retain calibration")
     parser.add_argument('--fu_similarity_boost', type=float, default=1.2,
                         help="Protection weight boost for retain clients close to the target client")
+    parser.add_argument('--fu_select_best_recovery', type=str2bool, default=True,
+                        help="Whether to select the best FU recovery checkpoint instead of always taking the last recovery round")
+    parser.add_argument('--fu_recovery_target_penalty', type=float, default=0.5,
+                        help="Penalty weight for target-client accuracy when selecting the best FU recovery checkpoint")
+    parser.add_argument('--fu_recovery_lr_scale', type=float, default=1.0,
+                        help="Local learning-rate scale used during FU recovery training")
     parser.add_argument('--protection_level', type=str, default='weak',
                         choices=['strong', 'moderate', 'weak'],
                         help="Protection strength for retain clients inside FU")

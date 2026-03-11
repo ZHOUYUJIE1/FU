@@ -233,7 +233,7 @@ class SCAFFOLD(Server):
             snapshot["client_local_param_states"] = client_local_param_states
         return snapshot
 
-    def recovery_training(self, target_client_id, recovery_rounds=5, capture_snapshots=False):
+    def recovery_training(self, target_client_id, recovery_rounds=5, capture_snapshots=False, lr_scale=1.0):
         """
         恢复阶段训练：排除目标客户端，使用其他客户端数据进行训练
         
@@ -241,10 +241,12 @@ class SCAFFOLD(Server):
             target_client_id: 要排除的目标客户端ID
             recovery_rounds: 恢复训练的轮数
             capture_snapshots: 是否保存每轮恢复后的模型快照
+            lr_scale: 恢复阶段客户端本地学习率缩放系数
         """
         print(f"\n============= 开始恢复阶段训练 =============")
         print(f"排除目标客户端: {target_client_id}")
         print(f"恢复训练轮数: {recovery_rounds}")
+        print(f"恢复阶段学习率缩放: {lr_scale}")
         
         # 设置排除的客户端
         self.excluded_client_ids = [target_client_id]
@@ -266,6 +268,15 @@ class SCAFFOLD(Server):
         # 设置恢复阶段的参数
         self.global_rounds = recovery_rounds
         self.eval_gap = 1  # 每轮都评估
+
+        original_client_lrs = {}
+        if lr_scale != 1.0:
+            for client in self.clients:
+                param_group_lrs = [group['lr'] for group in client.optimizer.param_groups]
+                original_client_lrs[client.id] = (client.learning_rate, param_group_lrs)
+                client.learning_rate *= lr_scale
+                for group in client.optimizer.param_groups:
+                    group['lr'] *= lr_scale
         
         print(f"恢复阶段将进行 {recovery_rounds} 轮训练")
         print(f"参与训练的客户端: {[c.id for c in self.clients if c.id != target_client_id]}")
@@ -322,6 +333,12 @@ class SCAFFOLD(Server):
         
         # 清除排除的客户端
         self.excluded_client_ids = []
+        if original_client_lrs:
+            for client in self.clients:
+                original_lr, param_group_lrs = original_client_lrs[client.id]
+                client.learning_rate = original_lr
+                for group, group_lr in zip(client.optimizer.param_groups, param_group_lrs):
+                    group['lr'] = group_lr
         
         print(f"\n============= 恢复阶段训练完成 =============")
         print(f"恢复阶段结果:")

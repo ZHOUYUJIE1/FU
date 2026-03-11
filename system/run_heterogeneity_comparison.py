@@ -114,6 +114,9 @@ MAIN_DEFAULTS = {
     "fu_retain_calibration_batches": 3,
     "fu_mask_retain_scale": 0.12,
     "fu_similarity_boost": 1.2,
+    "fu_select_best_recovery": True,
+    "fu_recovery_target_penalty": 0.5,
+    "fu_recovery_lr_scale": 1.0,
     "protection_level": "weak",
     "target_client_id": 5,
     "load_saved_model": False,
@@ -165,6 +168,9 @@ MAIN_ARG_FLAGS = {
     "fu_retain_calibration_batches": "--fu_retain_calibration_batches",
     "fu_mask_retain_scale": "--fu_mask_retain_scale",
     "fu_similarity_boost": "--fu_similarity_boost",
+    "fu_select_best_recovery": "--fu_select_best_recovery",
+    "fu_recovery_target_penalty": "--fu_recovery_target_penalty",
+    "fu_recovery_lr_scale": "--fu_recovery_lr_scale",
     "protection_level": "--protection_level",
     "target_client_id": "--target_client_id",
     "load_saved_model": "--load_saved_model",
@@ -178,6 +184,10 @@ def parse_args():
         description="Prepare and run FU/FedAU/FedCSA/FedOSD/Retrain comparisons under mild/moderate/severe heterogeneity."
     )
     parser.add_argument("--dataset-base", type=str, default="Cifar10")
+    parser.add_argument("--dataset-prefix", type=str, default="hetero",
+                        help="Dataset name infix used when generating per-level dataset variants, e.g. Cifar10_hetero_mild.")
+    parser.add_argument("--experiment-name", type=str, default="heterogeneity",
+                        help="Output stem used for command scripts and summary CSVs.")
     parser.add_argument("--goal", type=str, default="test")
     parser.add_argument("--algorithm", type=str, default="FedAvg")
     parser.add_argument("--model", type=str, default="ResNet18")
@@ -226,6 +236,10 @@ def parse_args():
     parser.add_argument("--alpha-mild", type=float, default=1.0)
     parser.add_argument("--alpha-moderate", type=float, default=0.3)
     parser.add_argument("--alpha-severe", type=float, default=0.1)
+    parser.add_argument("--class-per-client-mild", type=int, default=5,
+                        help="Used when partition=pat/exdir. Larger means milder label skew.")
+    parser.add_argument("--class-per-client-moderate", type=int, default=3)
+    parser.add_argument("--class-per-client-severe", type=int, default=2)
 
     parser.add_argument("--max-batches", type=int, default=8)
     parser.add_argument("--num-processes", type=int, default=4)
@@ -256,6 +270,9 @@ def parse_args():
     parser.add_argument("--fu-retain-calibration-batches", type=int, default=3)
     parser.add_argument("--fu-mask-retain-scale", type=float, default=0.12)
     parser.add_argument("--fu-similarity-boost", type=float, default=1.2)
+    parser.add_argument("--fu-select-best-recovery", type=str, default="true")
+    parser.add_argument("--fu-recovery-target-penalty", type=float, default=0.5)
+    parser.add_argument("--fu-recovery-lr-scale", type=float, default=1.0)
     parser.add_argument("--protection-level", type=str, default="weak", choices=["strong", "moderate", "weak"])
 
     return parser.parse_args()
@@ -273,7 +290,7 @@ def build_result_path(prefix, dataset_name, algorithm, goal, times, result_tag, 
 
 
 def dataset_name_for_level(args, level):
-    return f"{args.dataset_base}_hetero_{level}"
+    return f"{args.dataset_base}_{args.dataset_prefix}_{level}"
 
 
 def result_tag_for(level, method):
@@ -286,6 +303,18 @@ def level_alpha_map(args):
         "moderate": float(args.alpha_moderate),
         "severe": float(args.alpha_severe),
     }
+
+
+def level_class_per_client_map(args):
+    return {
+        "mild": int(args.class_per_client_mild),
+        "moderate": int(args.class_per_client_moderate),
+        "severe": int(args.class_per_client_severe),
+    }
+
+
+def output_stem(args):
+    return f"{args.dataset_base}_{args.algorithm}_{args.experiment_name}"
 
 
 def set_global_seed(seed):
@@ -322,6 +351,25 @@ def apply_partition_config(alpha):
         legacy_dataset_utils.alpha = float(alpha)
 
 
+def level_metadata(args, level, alpha_map, class_per_client_map):
+    class_per_client = None
+    alpha = None
+    if args.partition == "dir":
+        alpha = float(alpha_map[level])
+    elif args.partition in {"pat", "exdir"}:
+        class_per_client = int(class_per_client_map[level])
+        alpha = float(alpha_map[level])
+
+    return {
+        "level": level,
+        "dataset_name": dataset_name_for_level(args, level),
+        "partition": args.partition,
+        "alpha": alpha,
+        "num_clients": int(args.num_clients),
+        "class_per_client": class_per_client,
+    }
+
+
 def ensure_rawdata_link(dataset_base, dataset_dir):
     source_rawdata = DATASET_ROOT / dataset_base / "rawdata"
     target_rawdata = dataset_dir / "rawdata"
@@ -344,8 +392,8 @@ def clear_partition_outputs(dataset_dir):
         config_path.unlink()
 
 
-def prepare_dataset_variant(args, level, alpha):
-    dataset_name = dataset_name_for_level(args, level)
+def prepare_dataset_variant(args, variant_meta):
+    dataset_name = variant_meta["dataset_name"]
     dataset_dir = DATASET_ROOT / dataset_name
     dataset_dir.mkdir(parents=True, exist_ok=True)
 
@@ -354,14 +402,18 @@ def prepare_dataset_variant(args, level, alpha):
 
     ensure_rawdata_link(args.dataset_base, dataset_dir)
     generate_dataset = load_generator(args.dataset_base)
-    apply_partition_config(alpha)
+    apply_partition_config(variant_meta["alpha"])
     set_global_seed(args.seed)
+    call_kwargs = {}
+    if "class_per_client" in inspect.signature(generate_dataset).parameters:
+        call_kwargs["class_per_client"] = variant_meta["class_per_client"]
     generate_dataset(
         str(dataset_dir) + os.sep,
-        args.num_clients,
+        variant_meta["num_clients"],
         True,
         bool(args.balance),
         args.partition,
+        **call_kwargs,
     )
     return dataset_name
 
@@ -452,6 +504,9 @@ def build_main_command(args, dataset_name, level, method):
         "fu_retain_calibration_batches": args.fu_retain_calibration_batches,
         "fu_mask_retain_scale": args.fu_mask_retain_scale,
         "fu_similarity_boost": args.fu_similarity_boost,
+        "fu_select_best_recovery": args.fu_select_best_recovery.lower() == "true",
+        "fu_recovery_target_penalty": args.fu_recovery_target_penalty,
+        "fu_recovery_lr_scale": args.fu_recovery_lr_scale,
         "protection_level": args.protection_level,
         "load_saved_model": False,
         "retrain_only": spec["retrain_only"],
@@ -504,7 +559,7 @@ def wrap_command_for_shell(args, cmd):
 
 def write_command_script(args, commands):
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
-    script_path = LOG_ROOT / f"{args.dataset_base}_{args.algorithm}_heterogeneity_commands.sh"
+    script_path = LOG_ROOT / f"{output_stem(args)}_commands.sh"
     with open(script_path, "w", encoding="utf-8") as f:
         f.write("#!/usr/bin/env bash\n")
         f.write("set -euo pipefail\n\n")
@@ -515,12 +570,18 @@ def write_command_script(args, commands):
     return script_path
 
 
-def print_command_plan(args, commands, alpha_map):
+def print_command_plan(args, commands, variant_meta_by_level):
     print("Heterogeneity plan:")
     for level in ordered_levels(args.levels):
-        print(f"  {level}: alpha={alpha_map[level]}")
+        meta = variant_meta_by_level[level]
+        parts = [f"partition={meta['partition']}", f"num_clients={meta['num_clients']}"]
+        if meta["alpha"] is not None:
+            parts.append(f"alpha={meta['alpha']}")
+        if meta["class_per_client"] is not None:
+            parts.append(f"class_per_client={meta['class_per_client']}")
+        print(f"  {level}: " + ", ".join(parts))
         for method in ordered_methods(args.methods):
-            dataset_name = dataset_name_for_level(args, level)
+            dataset_name = meta["dataset_name"]
             result_tag = result_tag_for(level, method)
             print(f"    {METHOD_SPECS[method]['display_name']}: dataset={dataset_name}, result_tag={result_tag}")
 
@@ -599,15 +660,19 @@ def safe_client_metric(eval_data, target_client_id, retain=False):
     return None
 
 
-def collect_summary(args, alpha_map):
+def collect_summary(args, variant_meta_by_level):
     rows = []
     for level in ordered_levels(args.levels):
-        dataset_name = dataset_name_for_level(args, level)
+        meta = variant_meta_by_level[level]
+        dataset_name = meta["dataset_name"]
         for method in ordered_methods(args.methods):
             result_tag = result_tag_for(level, method)
             row = {
                 "level": level,
-                "alpha": alpha_map[level],
+                "partition": meta["partition"],
+                "alpha": meta["alpha"],
+                "num_clients": meta["num_clients"],
+                "class_per_client": meta["class_per_client"],
                 "dataset": dataset_name,
                 "method": method,
                 "display_name": METHOD_SPECS[method]["display_name"],
@@ -756,7 +821,7 @@ def collect_summary(args, alpha_map):
             rows.append(row)
 
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
-    summary_path = LOG_ROOT / f"{args.dataset_base}_{args.algorithm}_heterogeneity_summary.csv"
+    summary_path = LOG_ROOT / f"{output_stem(args)}_summary.csv"
     if rows:
         fieldnames = []
         for row in rows:
@@ -773,40 +838,51 @@ def collect_summary(args, alpha_map):
 def main():
     args = parse_args()
     alpha_map = level_alpha_map(args)
+    class_per_client_map = level_class_per_client_map(args)
     levels = ordered_levels(args.levels)
     methods = ordered_methods(args.methods)
+    variant_meta_by_level = {
+        level: level_metadata(args, level, alpha_map, class_per_client_map)
+        for level in levels
+    }
 
     if args.summary_only:
-        summary_path = collect_summary(args, alpha_map)
+        summary_path = collect_summary(args, variant_meta_by_level)
         print(f"Summary written to: {summary_path}")
         return
 
     if not args.skip_prepare:
         for level in levels:
-            alpha = alpha_map[level]
-            dataset_name = prepare_dataset_variant(args, level, alpha)
-            print(f"Prepared dataset: {dataset_name} (alpha={alpha})")
+            meta = variant_meta_by_level[level]
+            dataset_name = prepare_dataset_variant(args, meta)
+            descriptor = [f"partition={meta['partition']}"]
+            if meta["alpha"] is not None:
+                descriptor.append(f"alpha={meta['alpha']}")
+            if meta["class_per_client"] is not None:
+                descriptor.append(f"class_per_client={meta['class_per_client']}")
+            descriptor.append(f"num_clients={meta['num_clients']}")
+            print(f"Prepared dataset: {dataset_name} ({', '.join(descriptor)})")
 
     commands = []
     for level in levels:
-        dataset_name = dataset_name_for_level(args, level)
+        dataset_name = variant_meta_by_level[level]["dataset_name"]
         for method in methods:
             cmd = build_main_command(args, dataset_name, level, method)
             log_path = LOG_ROOT / dataset_name / f"{method}.log"
             commands.append((level, method, log_path, cmd))
 
     script_path = write_command_script(args, commands)
-    print_command_plan(args, commands, alpha_map)
+    print_command_plan(args, commands, variant_meta_by_level)
     print(f"\nCommand script written to: {script_path}")
 
     if not args.run:
-        summary_path = collect_summary(args, alpha_map)
+        summary_path = collect_summary(args, variant_meta_by_level)
         print(f"Summary written to: {summary_path}")
         return
 
     failures = []
     for level, method, log_path, cmd in commands:
-        dataset_name = dataset_name_for_level(args, level)
+        dataset_name = variant_meta_by_level[level]["dataset_name"]
         primary_path = primary_result_path(args, dataset_name, level, method)
         if args.skip_existing and primary_path.exists():
             print(f"\nSkipping [{level}][{method}] because {primary_path.name} already exists.")
@@ -830,7 +906,7 @@ def main():
             if not args.continue_on_error:
                 raise
 
-    summary_path = collect_summary(args, alpha_map)
+    summary_path = collect_summary(args, variant_meta_by_level)
     print(f"\nSummary written to: {summary_path}")
     if failures:
         print("\nFailed runs:")

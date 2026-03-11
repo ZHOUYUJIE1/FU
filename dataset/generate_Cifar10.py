@@ -15,7 +15,7 @@ dir_path = "Cifar10/"
 
 
 # Allocate data to users
-def generate_dataset(dir_path, num_clients, niid, balance, partition):
+def generate_dataset(dir_path, num_clients, niid, balance, partition, class_per_client=2):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
         
@@ -24,7 +24,18 @@ def generate_dataset(dir_path, num_clients, niid, balance, partition):
     train_path = dir_path + "train/"
     test_path = dir_path + "test/"
 
-    if check(config_path, train_path, test_path, num_clients, niid, balance, partition):
+    effective_class_per_client = class_per_client if partition in ("pat", "exdir") else None
+
+    if check(
+        config_path,
+        train_path,
+        test_path,
+        num_clients,
+        niid,
+        balance,
+        partition,
+        class_per_client=effective_class_per_client,
+    ):
         return
         
     # Get Cifar10 data
@@ -64,10 +75,10 @@ def generate_dataset(dir_path, num_clients, niid, balance, partition):
     #     dataset.append(dataset_image[idx])
 
     X, y, statistic = separate_data((dataset_image, dataset_label), num_clients, num_classes,  
-                                    niid, balance, partition, class_per_client=2)
+                                    niid, balance, partition, class_per_client=class_per_client)
     train_data, test_data = split_data(X, y)
     save_file(config_path, train_path, test_path, train_data, test_data, num_clients, num_classes, 
-        statistic, niid, balance, partition)
+        statistic, niid, balance, partition, class_per_client=effective_class_per_client)
 
 
 if __name__ == "__main__":
