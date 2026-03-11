@@ -1,0 +1,262 @@
+==================================================
+goal = test
+device = cuda
+device_id = 0
+dataset = Cifar10
+num_classes = 10
+model = ResNet18
+batch_size = 32
+local_learning_rate = 0.005
+learning_rate_decay = False
+learning_rate_decay_gamma = 0.99
+global_rounds = 100
+top_cnt = 100
+local_epochs = 1
+algorithm = SCAFFOLD
+server_learning_rate = 1.0
+join_ratio = 1.0
+random_join_ratio = False
+num_clients = 10
+prev = 0
+times = 1
+eval_gap = 1
+save_folder_name = items
+auto_break = False
+dlg_eval = False
+dlg_gap = 100
+batch_num_per_client = 2
+num_new_clients = 0
+fine_tuning_epoch_new = 0
+feature_dim = 512
+vocab_size = 80
+max_len = 200
+few_shot = 0
+client_drop_rate = 0.0
+train_slow_rate = 0.0
+send_slow_rate = 0.0
+time_select = False
+time_threthold = 10000
+random_seed = 42
+result_tag = 
+forget_strategy = fedosd
+fedcsa_forget_epochs = 5
+fedcsa_probe_epochs = 1
+fedcsa_probe_batches = 4
+fedcsa_slice_rounds = 3
+fedcsa_slice_local_epochs = 1
+fedcsa_slice_batches = 0
+fedcsa_compare_min_clusters = 2
+fedcsa_compare_max_clusters = 5
+fedcsa_cache_enabled = True
+fedcsa_force_rebuild = False
+fedcsa_compare_use_scaffold = True
+fedosd_lr = 0.0004
+fedosd_use_legacy = False
+fedosd_unlearn_rounds = 20
+fedosd_recovery_rounds = 1
+fedosd_recovery_lr = 1e-06
+fedosd_force_target_online = True
+fedu_forget_epochs = 1
+fedu_lr = 0.003
+fedu_eps = 0.005
+fedu_alpha = 0.02
+fedu_erased_ratio = 0.35
+fedu_erased_max_samples = 1200
+fedu_split_seed = 42
+fedu_forget_rounds = 12
+fedu_local_steps = 6
+fedu_hutchinson_samples = 8
+fedu_utility_scale = 0.35
+load_saved_model = True
+saved_model_path = /home/siguangchen/zyj/FUcopy/system/results/exp_configs/global_model_Cifar10_SCAFFOLD_test_1.pt
+debug_model_loading = False
+recovery_rounds = 5
+use_optimized_forgetting = True
+sample_ratio = 0.3
+max_batches = 8
+num_processes = 4
+target_client_id = 5
+retrain_only = False
+==================================================
+实验配置已保存到: results/exp_configs/exp_config_Cifar10_SCAFFOLD_test_1.json
+
+============= Running time: 0th =============
+Creating server and clients ...
+从已保存的模型文件加载: /home/siguangchen/zyj/FUcopy/system/results/exp_configs/global_model_Cifar10_SCAFFOLD_test_1.pt
+ResNet(
+  (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+  (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (relu): ReLU(inplace=True)
+  (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer2): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer3): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer4): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+  (fc): Linear(in_features=512, out_features=10, bias=True)
+)
+
+Join ratio / total clients: 1.0 / 10
+Finished creating server and clients.
+模型参数已通过state_dict加载完毕！
+global_c 已加载！
+所有客户端的 client_c 已加载！
+所有客户端的本地buffer状态已加载！
+跳过训练阶段，直接进行遗忘...
+
+============= 遗忘前评估 =============
+
+============= 遗忘前评估 =============
+客户端0 - 准确率: 0.9093, AUC: 0.9919, 测试样本数: 1500
+客户端1 - 准确率: 0.9287, AUC: 0.9909, 测试样本数: 1500
+客户端2 - 准确率: 0.8113, AUC: 0.9828, 测试样本数: 1500
+客户端3 - 准确率: 0.7733, AUC: 0.9766, 测试样本数: 1500
+客户端4 - 准确率: 0.8480, AUC: 0.9875, 测试样本数: 1500
+客户端5 - 准确率: 0.8507, AUC: 0.9856, 测试样本数: 1500
+客户端6 - 准确率: 0.9413, AUC: 0.9935, 测试样本数: 1500
+客户端7 - 准确率: 0.9360, AUC: 0.9948, 测试样本数: 1500
+客户端8 - 准确率: 0.9347, AUC: 0.9942, 测试样本数: 1500
+客户端9 - 准确率: 0.9080, AUC: 0.9883, 测试样本数: 1500
+
+平均准确率: 0.8841 ± 0.0563
+平均AUC: 0.9886 ± 0.0055
+评估结果已保存到: results/exp_configs/eval_pre_forget_Cifar10_SCAFFOLD_test_1.json
+
+============= 遗忘前攻击评估 =============
+[遗忘前MIA] AUC: 0.5229, 最佳准确率: 0.5312, 最佳阈值: 0.32
+[遗忘前后门攻击] 后门样本准确率: 0.1927
+
+============= 开始遗忘阶段 =============
+目标遗忘客户端: 5
+
+============= FedOSD 遗忘方法（official-like） =============
+目标遗忘客户端: 5
+FedOSD遗忘轮数: 20, 本地/服务端学习率: 0.0004
+FedOSD后训练轮数: 1, 后训练学习率: 1e-06
+FedOSD遗忘轮 1/20，在线客户端: [8, 1, 5, 0, 7, 2, 9, 4, 3, 6]
+FedOSD遗忘轮 2/20，在线客户端: [0, 1, 8, 5, 3, 4, 7, 9, 6, 2]
+FedOSD遗忘轮 3/20，在线客户端: [9, 2, 0, 6, 8, 5, 3, 7, 1, 4]
+FedOSD遗忘轮 4/20，在线客户端: [1, 7, 6, 2, 8, 0, 3, 4, 5, 9]
+FedOSD遗忘轮 5/20，在线客户端: [1, 5, 4, 8, 0, 7, 6, 3, 2, 9]
+FedOSD遗忘轮 6/20，在线客户端: [8, 2, 5, 7, 3, 1, 9, 0, 4, 6]
+FedOSD遗忘轮 7/20，在线客户端: [0, 5, 2, 6, 3, 7, 4, 1, 8, 9]
+FedOSD遗忘轮 8/20，在线客户端: [4, 8, 1, 3, 0, 5, 2, 9, 7, 6]
+FedOSD遗忘轮 9/20，在线客户端: [2, 0, 4, 9, 8, 6, 7, 5, 1, 3]
+FedOSD遗忘轮 10/20，在线客户端: [4, 2, 7, 0, 6, 3, 5, 8, 9, 1]
+FedOSD遗忘轮 11/20，在线客户端: [5, 2, 7, 3, 0, 8, 9, 6, 1, 4]
+FedOSD遗忘轮 12/20，在线客户端: [1, 5, 2, 4, 3, 7, 9, 6, 8, 0]
+FedOSD遗忘轮 13/20，在线客户端: [3, 1, 4, 5, 8, 6, 9, 7, 0, 2]
+FedOSD遗忘轮 14/20，在线客户端: [2, 4, 5, 1, 7, 0, 9, 3, 8, 6]
+FedOSD遗忘轮 15/20，在线客户端: [7, 0, 1, 8, 3, 2, 4, 5, 9, 6]
+FedOSD遗忘轮 16/20，在线客户端: [6, 1, 3, 8, 7, 5, 4, 9, 0, 2]
+FedOSD遗忘轮 17/20，在线客户端: [4, 7, 8, 3, 5, 1, 0, 2, 9, 6]
+FedOSD遗忘轮 18/20，在线客户端: [1, 8, 5, 2, 9, 7, 4, 3, 0, 6]
+FedOSD遗忘轮 19/20，在线客户端: [8, 0, 4, 1, 9, 5, 7, 2, 6, 3]
+FedOSD遗忘轮 20/20，在线客户端: [0, 2, 1, 9, 7, 6, 3, 5, 4, 8]
+执行FedOSD官方风格后训练阶段...
+FedOSD后训练轮 1/1，在线客户端: [1, 2, 8, 4, 9, 6, 0, 3, 7]
+FedOSD遗忘完成
+遗忘后模型已保存到: results/exp_configs/forget_model_Cifar10_SCAFFOLD_test_1.pt
+
+============= 遗忘后评估 =============
+
+============= 遗忘后评估 =============
+客户端0 - 准确率: 0.9267, AUC: 0.9925, 测试样本数: 1500
+客户端1 - 准确率: 0.9033, AUC: 0.9787, 测试样本数: 1500
+客户端2 - 准确率: 0.8013, AUC: 0.9788, 测试样本数: 1500
+客户端3 - 准确率: 0.7727, AUC: 0.9736, 测试样本数: 1500
+客户端4 - 准确率: 0.6460, AUC: 0.9611, 测试样本数: 1500
+客户端5 - 准确率: 0.6553, AUC: 0.9631, 测试样本数: 1500
+客户端6 - 准确率: 0.9380, AUC: 0.9924, 测试样本数: 1500
+客户端7 - 准确率: 0.9320, AUC: 0.9932, 测试样本数: 1500
+客户端8 - 准确率: 0.9220, AUC: 0.9930, 测试样本数: 1500
+客户端9 - 准确率: 0.8873, AUC: 0.9817, 测试样本数: 1500
+
+平均准确率: 0.8385 ± 0.1078
+平均AUC: 0.9808 ± 0.0116
+评估结果已保存到: results/exp_configs/eval_post_forget_Cifar10_SCAFFOLD_test_1.json
+
+============= 遗忘效果分析 =============
+目标客户端(5) 遗忘前: 0.8507 遗忘后: 0.6553
+目标客户端(5) 变化量: -0.1953 (相对 -22.96%)
+其他客户端 平均变化量: -0.0290 (相对 -3.37%)
+
+============= 跳过外层恢复阶段 =============
+FedOSD 对比实现已在遗忘函数内部完成 post-training，外层通用恢复不再重复执行。
+遗忘效果汇总已保存到: results/exp_configs/forget_effect_Cifar10_SCAFFOLD_test_1.json
+
+============= 遗忘后攻击评估 =============
+[遗忘后MIA] AUC: 0.5263, 最佳准确率: 0.5341, 最佳阈值: 0.42
+[遗忘后后门攻击] 后门样本准确率: 0.0729

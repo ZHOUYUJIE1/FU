@@ -1,0 +1,1967 @@
+==================================================
+goal = test
+device = cuda
+device_id = 0
+dataset = Cifar10
+num_classes = 10
+model = ResNet18
+batch_size = 32
+local_learning_rate = 0.005
+learning_rate_decay = False
+learning_rate_decay_gamma = 0.99
+global_rounds = 100
+top_cnt = 100
+local_epochs = 1
+algorithm = FedAvg
+server_learning_rate = 1.0
+join_ratio = 1.0
+random_join_ratio = False
+num_clients = 10
+prev = 0
+times = 1
+eval_gap = 1
+save_folder_name = items
+auto_break = False
+dlg_eval = False
+dlg_gap = 100
+batch_num_per_client = 2
+num_new_clients = 0
+fine_tuning_epoch_new = 0
+feature_dim = 512
+vocab_size = 80
+max_len = 200
+few_shot = 0
+client_drop_rate = 0.0
+train_slow_rate = 0.0
+send_slow_rate = 0.0
+time_select = False
+time_threthold = 10000
+random_seed = 42
+forget_strategy = gradient_reversal
+fedcsa_forget_epochs = 5
+fedosd_lr = 0.01
+fedu_forget_epochs = 1
+fedu_lr = 0.001
+fedu_eps = 0.01
+fedu_alpha = 0.02
+load_saved_model = False
+saved_model_path = /home/siguangchen/zyj/FLCOPY copy/system/results/exp_configs/global_model_Cifar10_SCAFFOLD_test_1.pt
+debug_model_loading = False
+recovery_rounds = 5
+use_optimized_forgetting = True
+sample_ratio = 0.3
+max_batches = 8
+num_processes = 4
+target_client_id = 5
+retrain_only = False
+==================================================
+实验配置已保存到: results/exp_configs/exp_config_Cifar10_FedAvg_test_1.json
+
+============= Running time: 0th =============
+Creating server and clients ...
+ResNet(
+  (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+  (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (relu): ReLU(inplace=True)
+  (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer2): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer3): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer4): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+  (fc): Linear(in_features=512, out_features=10, bias=True)
+)
+
+Join ratio / total clients: 1.0 / 10
+Finished creating server and clients.
+
+-------------Round number: 0-------------
+
+Evaluate global model
+Averaged Train Loss: 2.3042
+Averaged Test Accuracy: 0.1188
+Averaged Test AUC: 0.5172
+Std Test Accuracy: 0.1224
+Std Test AUC: 0.1937
+------------------------- time cost ------------------------- 27.184718132019043
+
+-------------Round number: 1-------------
+
+Evaluate global model
+Averaged Train Loss: 2.0066
+Averaged Test Accuracy: 0.3721
+Averaged Test AUC: 0.7282
+Std Test Accuracy: 0.0554
+Std Test AUC: 0.0663
+------------------------- time cost ------------------------- 25.651265621185303
+
+-------------Round number: 2-------------
+
+Evaluate global model
+Averaged Train Loss: 2.0198
+Averaged Test Accuracy: 0.3431
+Averaged Test AUC: 0.7259
+Std Test Accuracy: 0.0446
+Std Test AUC: 0.0790
+------------------------- time cost ------------------------- 25.286424160003662
+
+-------------Round number: 3-------------
+
+Evaluate global model
+Averaged Train Loss: 1.9571
+Averaged Test Accuracy: 0.3686
+Averaged Test AUC: 0.7577
+Std Test Accuracy: 0.0612
+Std Test AUC: 0.0414
+------------------------- time cost ------------------------- 25.24548864364624
+
+-------------Round number: 4-------------
+
+Evaluate global model
+Averaged Train Loss: 1.9697
+Averaged Test Accuracy: 0.3195
+Averaged Test AUC: 0.7445
+Std Test Accuracy: 0.0739
+Std Test AUC: 0.0476
+------------------------- time cost ------------------------- 25.22199010848999
+
+-------------Round number: 5-------------
+
+Evaluate global model
+Averaged Train Loss: 1.9463
+Averaged Test Accuracy: 0.3109
+Averaged Test AUC: 0.7590
+Std Test Accuracy: 0.0612
+Std Test AUC: 0.0294
+------------------------- time cost ------------------------- 25.164921522140503
+
+-------------Round number: 6-------------
+
+Evaluate global model
+Averaged Train Loss: 1.9072
+Averaged Test Accuracy: 0.3435
+Averaged Test AUC: 0.7640
+Std Test Accuracy: 0.0780
+Std Test AUC: 0.0327
+------------------------- time cost ------------------------- 25.219831705093384
+
+-------------Round number: 7-------------
+
+Evaluate global model
+Averaged Train Loss: 1.9315
+Averaged Test Accuracy: 0.3221
+Averaged Test AUC: 0.7524
+Std Test Accuracy: 0.0815
+Std Test AUC: 0.0343
+------------------------- time cost ------------------------- 25.207411527633667
+
+-------------Round number: 8-------------
+
+Evaluate global model
+Averaged Train Loss: 1.9211
+Averaged Test Accuracy: 0.3160
+Averaged Test AUC: 0.7531
+Std Test Accuracy: 0.0751
+Std Test AUC: 0.0252
+------------------------- time cost ------------------------- 25.379069566726685
+
+-------------Round number: 9-------------
+
+Evaluate global model
+Averaged Train Loss: 1.9007
+Averaged Test Accuracy: 0.3274
+Averaged Test AUC: 0.7609
+Std Test Accuracy: 0.0733
+Std Test AUC: 0.0343
+------------------------- time cost ------------------------- 25.26321005821228
+
+-------------Round number: 10-------------
+
+Evaluate global model
+Averaged Train Loss: 1.8498
+Averaged Test Accuracy: 0.3367
+Averaged Test AUC: 0.7790
+Std Test Accuracy: 0.0758
+Std Test AUC: 0.0248
+------------------------- time cost ------------------------- 26.103743314743042
+
+-------------Round number: 11-------------
+
+Evaluate global model
+Averaged Train Loss: 1.8276
+Averaged Test Accuracy: 0.3599
+Averaged Test AUC: 0.7827
+Std Test Accuracy: 0.0776
+Std Test AUC: 0.0339
+------------------------- time cost ------------------------- 26.20225715637207
+
+-------------Round number: 12-------------
+
+Evaluate global model
+Averaged Train Loss: 1.8076
+Averaged Test Accuracy: 0.3719
+Averaged Test AUC: 0.7900
+Std Test Accuracy: 0.0864
+Std Test AUC: 0.0379
+------------------------- time cost ------------------------- 26.139972448349
+
+-------------Round number: 13-------------
+
+Evaluate global model
+Averaged Train Loss: 1.8058
+Averaged Test Accuracy: 0.3691
+Averaged Test AUC: 0.7860
+Std Test Accuracy: 0.0792
+Std Test AUC: 0.0347
+------------------------- time cost ------------------------- 26.203295946121216
+
+-------------Round number: 14-------------
+
+Evaluate global model
+Averaged Train Loss: 1.7874
+Averaged Test Accuracy: 0.3655
+Averaged Test AUC: 0.7910
+Std Test Accuracy: 0.0869
+Std Test AUC: 0.0348
+------------------------- time cost ------------------------- 26.12383794784546
+
+-------------Round number: 15-------------
+
+Evaluate global model
+Averaged Train Loss: 1.7442
+Averaged Test Accuracy: 0.3863
+Averaged Test AUC: 0.8036
+Std Test Accuracy: 0.0980
+Std Test AUC: 0.0336
+------------------------- time cost ------------------------- 26.11784863471985
+
+-------------Round number: 16-------------
+
+Evaluate global model
+Averaged Train Loss: 1.7415
+Averaged Test Accuracy: 0.3859
+Averaged Test AUC: 0.8018
+Std Test Accuracy: 0.0936
+Std Test AUC: 0.0377
+------------------------- time cost ------------------------- 26.197054862976074
+
+-------------Round number: 17-------------
+
+Evaluate global model
+Averaged Train Loss: 1.7221
+Averaged Test Accuracy: 0.3993
+Averaged Test AUC: 0.8062
+Std Test Accuracy: 0.0986
+Std Test AUC: 0.0365
+------------------------- time cost ------------------------- 26.212547063827515
+
+-------------Round number: 18-------------
+
+Evaluate global model
+Averaged Train Loss: 1.6928
+Averaged Test Accuracy: 0.4026
+Averaged Test AUC: 0.8117
+Std Test Accuracy: 0.1056
+Std Test AUC: 0.0345
+------------------------- time cost ------------------------- 26.179905891418457
+
+-------------Round number: 19-------------
+
+Evaluate global model
+Averaged Train Loss: 1.6871
+Averaged Test Accuracy: 0.4130
+Averaged Test AUC: 0.8087
+Std Test Accuracy: 0.1151
+Std Test AUC: 0.0422
+------------------------- time cost ------------------------- 26.119444608688354
+
+-------------Round number: 20-------------
+
+Evaluate global model
+Averaged Train Loss: 1.6831
+Averaged Test Accuracy: 0.3984
+Averaged Test AUC: 0.8102
+Std Test Accuracy: 0.1069
+Std Test AUC: 0.0381
+------------------------- time cost ------------------------- 26.156904697418213
+
+-------------Round number: 21-------------
+
+Evaluate global model
+Averaged Train Loss: 1.6675
+Averaged Test Accuracy: 0.4023
+Averaged Test AUC: 0.8141
+Std Test Accuracy: 0.1043
+Std Test AUC: 0.0371
+------------------------- time cost ------------------------- 26.208196878433228
+
+-------------Round number: 22-------------
+
+Evaluate global model
+Averaged Train Loss: 1.6589
+Averaged Test Accuracy: 0.4020
+Averaged Test AUC: 0.8110
+Std Test Accuracy: 0.1073
+Std Test AUC: 0.0417
+------------------------- time cost ------------------------- 26.23366355895996
+
+-------------Round number: 23-------------
+
+Evaluate global model
+Averaged Train Loss: 1.6427
+Averaged Test Accuracy: 0.4045
+Averaged Test AUC: 0.8154
+Std Test Accuracy: 0.0948
+Std Test AUC: 0.0324
+------------------------- time cost ------------------------- 26.18942165374756
+
+-------------Round number: 24-------------
+
+Evaluate global model
+Averaged Train Loss: 1.6052
+Averaged Test Accuracy: 0.4331
+Averaged Test AUC: 0.8205
+Std Test Accuracy: 0.1051
+Std Test AUC: 0.0376
+------------------------- time cost ------------------------- 26.20662784576416
+
+-------------Round number: 25-------------
+
+Evaluate global model
+Averaged Train Loss: 1.5820
+Averaged Test Accuracy: 0.4287
+Averaged Test AUC: 0.8239
+Std Test Accuracy: 0.1159
+Std Test AUC: 0.0397
+------------------------- time cost ------------------------- 25.77079129219055
+
+-------------Round number: 26-------------
+
+Evaluate global model
+Averaged Train Loss: 1.5835
+Averaged Test Accuracy: 0.4345
+Averaged Test AUC: 0.8213
+Std Test Accuracy: 0.1154
+Std Test AUC: 0.0395
+------------------------- time cost ------------------------- 25.21444606781006
+
+-------------Round number: 27-------------
+
+Evaluate global model
+Averaged Train Loss: 1.5674
+Averaged Test Accuracy: 0.4213
+Averaged Test AUC: 0.8234
+Std Test Accuracy: 0.1185
+Std Test AUC: 0.0443
+------------------------- time cost ------------------------- 24.9842050075531
+
+-------------Round number: 28-------------
+
+Evaluate global model
+Averaged Train Loss: 1.5548
+Averaged Test Accuracy: 0.4288
+Averaged Test AUC: 0.8231
+Std Test Accuracy: 0.1233
+Std Test AUC: 0.0468
+------------------------- time cost ------------------------- 24.9261314868927
+
+-------------Round number: 29-------------
+
+Evaluate global model
+Averaged Train Loss: 1.5084
+Averaged Test Accuracy: 0.4396
+Averaged Test AUC: 0.8340
+Std Test Accuracy: 0.1091
+Std Test AUC: 0.0371
+------------------------- time cost ------------------------- 25.27030897140503
+
+-------------Round number: 30-------------
+
+Evaluate global model
+Averaged Train Loss: 1.5195
+Averaged Test Accuracy: 0.4350
+Averaged Test AUC: 0.8257
+Std Test Accuracy: 0.1244
+Std Test AUC: 0.0442
+------------------------- time cost ------------------------- 25.229370594024658
+
+-------------Round number: 31-------------
+
+Evaluate global model
+Averaged Train Loss: 1.4971
+Averaged Test Accuracy: 0.4429
+Averaged Test AUC: 0.8289
+Std Test Accuracy: 0.1106
+Std Test AUC: 0.0396
+------------------------- time cost ------------------------- 25.276161193847656
+
+-------------Round number: 32-------------
+
+Evaluate global model
+Averaged Train Loss: 1.4763
+Averaged Test Accuracy: 0.4393
+Averaged Test AUC: 0.8291
+Std Test Accuracy: 0.1111
+Std Test AUC: 0.0379
+------------------------- time cost ------------------------- 24.945290088653564
+
+-------------Round number: 33-------------
+
+Evaluate global model
+Averaged Train Loss: 1.4678
+Averaged Test Accuracy: 0.4437
+Averaged Test AUC: 0.8322
+Std Test Accuracy: 0.1108
+Std Test AUC: 0.0395
+------------------------- time cost ------------------------- 25.16852903366089
+
+-------------Round number: 34-------------
+
+Evaluate global model
+Averaged Train Loss: 1.4626
+Averaged Test Accuracy: 0.4466
+Averaged Test AUC: 0.8298
+Std Test Accuracy: 0.1155
+Std Test AUC: 0.0411
+------------------------- time cost ------------------------- 25.893304109573364
+
+-------------Round number: 35-------------
+
+Evaluate global model
+Averaged Train Loss: 1.4475
+Averaged Test Accuracy: 0.4463
+Averaged Test AUC: 0.8293
+Std Test Accuracy: 0.1136
+Std Test AUC: 0.0438
+------------------------- time cost ------------------------- 25.951017141342163
+
+-------------Round number: 36-------------
+
+Evaluate global model
+Averaged Train Loss: 1.4289
+Averaged Test Accuracy: 0.4459
+Averaged Test AUC: 0.8312
+Std Test Accuracy: 0.1175
+Std Test AUC: 0.0453
+------------------------- time cost ------------------------- 26.18823742866516
+
+-------------Round number: 37-------------
+
+Evaluate global model
+Averaged Train Loss: 1.4083
+Averaged Test Accuracy: 0.4551
+Averaged Test AUC: 0.8304
+Std Test Accuracy: 0.1164
+Std Test AUC: 0.0446
+------------------------- time cost ------------------------- 26.260672092437744
+
+-------------Round number: 38-------------
+
+Evaluate global model
+Averaged Train Loss: 1.3889
+Averaged Test Accuracy: 0.4577
+Averaged Test AUC: 0.8333
+Std Test Accuracy: 0.1103
+Std Test AUC: 0.0394
+------------------------- time cost ------------------------- 26.153955459594727
+
+-------------Round number: 39-------------
+
+Evaluate global model
+Averaged Train Loss: 1.3694
+Averaged Test Accuracy: 0.4607
+Averaged Test AUC: 0.8364
+Std Test Accuracy: 0.1097
+Std Test AUC: 0.0403
+------------------------- time cost ------------------------- 26.238620042800903
+
+-------------Round number: 40-------------
+
+Evaluate global model
+Averaged Train Loss: 1.3623
+Averaged Test Accuracy: 0.4593
+Averaged Test AUC: 0.8331
+Std Test Accuracy: 0.1227
+Std Test AUC: 0.0461
+------------------------- time cost ------------------------- 26.247557640075684
+
+-------------Round number: 41-------------
+
+Evaluate global model
+Averaged Train Loss: 1.3614
+Averaged Test Accuracy: 0.4519
+Averaged Test AUC: 0.8303
+Std Test Accuracy: 0.1196
+Std Test AUC: 0.0471
+------------------------- time cost ------------------------- 26.078314542770386
+
+-------------Round number: 42-------------
+
+Evaluate global model
+Averaged Train Loss: 1.3281
+Averaged Test Accuracy: 0.4653
+Averaged Test AUC: 0.8358
+Std Test Accuracy: 0.1072
+Std Test AUC: 0.0445
+------------------------- time cost ------------------------- 26.094105005264282
+
+-------------Round number: 43-------------
+
+Evaluate global model
+Averaged Train Loss: 1.3362
+Averaged Test Accuracy: 0.4545
+Averaged Test AUC: 0.8298
+Std Test Accuracy: 0.1228
+Std Test AUC: 0.0509
+------------------------- time cost ------------------------- 26.198281288146973
+
+-------------Round number: 44-------------
+
+Evaluate global model
+Averaged Train Loss: 1.3021
+Averaged Test Accuracy: 0.4737
+Averaged Test AUC: 0.8332
+Std Test Accuracy: 0.1097
+Std Test AUC: 0.0501
+------------------------- time cost ------------------------- 26.111053466796875
+
+-------------Round number: 45-------------
+
+Evaluate global model
+Averaged Train Loss: 1.2847
+Averaged Test Accuracy: 0.4707
+Averaged Test AUC: 0.8374
+Std Test Accuracy: 0.1031
+Std Test AUC: 0.0460
+------------------------- time cost ------------------------- 26.262983322143555
+
+-------------Round number: 46-------------
+
+Evaluate global model
+Averaged Train Loss: 1.2662
+Averaged Test Accuracy: 0.4669
+Averaged Test AUC: 0.8392
+Std Test Accuracy: 0.1204
+Std Test AUC: 0.0478
+------------------------- time cost ------------------------- 26.208416223526
+
+-------------Round number: 47-------------
+
+Evaluate global model
+Averaged Train Loss: 1.2631
+Averaged Test Accuracy: 0.4663
+Averaged Test AUC: 0.8340
+Std Test Accuracy: 0.1186
+Std Test AUC: 0.0484
+------------------------- time cost ------------------------- 26.14918565750122
+
+-------------Round number: 48-------------
+
+Evaluate global model
+Averaged Train Loss: 1.2644
+Averaged Test Accuracy: 0.4680
+Averaged Test AUC: 0.8327
+Std Test Accuracy: 0.1144
+Std Test AUC: 0.0527
+------------------------- time cost ------------------------- 26.19129729270935
+
+-------------Round number: 49-------------
+
+Evaluate global model
+Averaged Train Loss: 1.2390
+Averaged Test Accuracy: 0.4674
+Averaged Test AUC: 0.8355
+Std Test Accuracy: 0.1178
+Std Test AUC: 0.0514
+------------------------- time cost ------------------------- 26.129010438919067
+
+-------------Round number: 50-------------
+
+Evaluate global model
+Averaged Train Loss: 1.2167
+Averaged Test Accuracy: 0.4739
+Averaged Test AUC: 0.8376
+Std Test Accuracy: 0.1103
+Std Test AUC: 0.0469
+------------------------- time cost ------------------------- 26.23202347755432
+
+-------------Round number: 51-------------
+
+Evaluate global model
+Averaged Train Loss: 1.2268
+Averaged Test Accuracy: 0.4714
+Averaged Test AUC: 0.8328
+Std Test Accuracy: 0.1126
+Std Test AUC: 0.0519
+------------------------- time cost ------------------------- 26.26126480102539
+
+-------------Round number: 52-------------
+
+Evaluate global model
+Averaged Train Loss: 1.2103
+Averaged Test Accuracy: 0.4767
+Averaged Test AUC: 0.8331
+Std Test Accuracy: 0.1164
+Std Test AUC: 0.0532
+------------------------- time cost ------------------------- 26.094661474227905
+
+-------------Round number: 53-------------
+
+Evaluate global model
+Averaged Train Loss: 1.1841
+Averaged Test Accuracy: 0.4793
+Averaged Test AUC: 0.8388
+Std Test Accuracy: 0.1173
+Std Test AUC: 0.0499
+------------------------- time cost ------------------------- 26.174744844436646
+
+-------------Round number: 54-------------
+
+Evaluate global model
+Averaged Train Loss: 1.1618
+Averaged Test Accuracy: 0.4863
+Averaged Test AUC: 0.8388
+Std Test Accuracy: 0.1145
+Std Test AUC: 0.0520
+------------------------- time cost ------------------------- 26.10710096359253
+
+-------------Round number: 55-------------
+
+Evaluate global model
+Averaged Train Loss: 1.1473
+Averaged Test Accuracy: 0.4866
+Averaged Test AUC: 0.8412
+Std Test Accuracy: 0.1175
+Std Test AUC: 0.0517
+------------------------- time cost ------------------------- 26.108694791793823
+
+-------------Round number: 56-------------
+
+Evaluate global model
+Averaged Train Loss: 1.1687
+Averaged Test Accuracy: 0.4732
+Averaged Test AUC: 0.8347
+Std Test Accuracy: 0.1106
+Std Test AUC: 0.0503
+------------------------- time cost ------------------------- 26.168442487716675
+
+-------------Round number: 57-------------
+
+Evaluate global model
+Averaged Train Loss: 1.1294
+Averaged Test Accuracy: 0.4839
+Averaged Test AUC: 0.8417
+Std Test Accuracy: 0.1237
+Std Test AUC: 0.0511
+------------------------- time cost ------------------------- 26.120718240737915
+
+-------------Round number: 58-------------
+
+Evaluate global model
+Averaged Train Loss: 1.1494
+Averaged Test Accuracy: 0.4881
+Averaged Test AUC: 0.8348
+Std Test Accuracy: 0.1229
+Std Test AUC: 0.0573
+------------------------- time cost ------------------------- 26.10377526283264
+
+-------------Round number: 59-------------
+
+Evaluate global model
+Averaged Train Loss: 1.1135
+Averaged Test Accuracy: 0.4945
+Averaged Test AUC: 0.8405
+Std Test Accuracy: 0.1217
+Std Test AUC: 0.0565
+------------------------- time cost ------------------------- 26.189502954483032
+
+-------------Round number: 60-------------
+
+Evaluate global model
+Averaged Train Loss: 1.1131
+Averaged Test Accuracy: 0.4839
+Averaged Test AUC: 0.8395
+Std Test Accuracy: 0.1134
+Std Test AUC: 0.0510
+------------------------- time cost ------------------------- 26.102946758270264
+
+-------------Round number: 61-------------
+
+Evaluate global model
+Averaged Train Loss: 1.1084
+Averaged Test Accuracy: 0.4887
+Averaged Test AUC: 0.8363
+Std Test Accuracy: 0.1225
+Std Test AUC: 0.0590
+------------------------- time cost ------------------------- 25.9232816696167
+
+-------------Round number: 62-------------
+
+Evaluate global model
+Averaged Train Loss: 1.0771
+Averaged Test Accuracy: 0.5045
+Averaged Test AUC: 0.8416
+Std Test Accuracy: 0.1219
+Std Test AUC: 0.0604
+------------------------- time cost ------------------------- 25.76088047027588
+
+-------------Round number: 63-------------
+
+Evaluate global model
+Averaged Train Loss: 1.0393
+Averaged Test Accuracy: 0.5010
+Averaged Test AUC: 0.8470
+Std Test Accuracy: 0.1302
+Std Test AUC: 0.0525
+------------------------- time cost ------------------------- 25.149388313293457
+
+-------------Round number: 64-------------
+
+Evaluate global model
+Averaged Train Loss: 1.0495
+Averaged Test Accuracy: 0.5049
+Averaged Test AUC: 0.8422
+Std Test Accuracy: 0.1176
+Std Test AUC: 0.0540
+------------------------- time cost ------------------------- 25.29151749610901
+
+-------------Round number: 65-------------
+
+Evaluate global model
+Averaged Train Loss: 1.0289
+Averaged Test Accuracy: 0.5107
+Averaged Test AUC: 0.8437
+Std Test Accuracy: 0.1242
+Std Test AUC: 0.0574
+------------------------- time cost ------------------------- 25.171781063079834
+
+-------------Round number: 66-------------
+
+Evaluate global model
+Averaged Train Loss: 1.0153
+Averaged Test Accuracy: 0.5123
+Averaged Test AUC: 0.8466
+Std Test Accuracy: 0.1191
+Std Test AUC: 0.0568
+------------------------- time cost ------------------------- 25.179891109466553
+
+-------------Round number: 67-------------
+
+Evaluate global model
+Averaged Train Loss: 1.0066
+Averaged Test Accuracy: 0.5097
+Averaged Test AUC: 0.8486
+Std Test Accuracy: 0.1305
+Std Test AUC: 0.0586
+------------------------- time cost ------------------------- 25.276829957962036
+
+-------------Round number: 68-------------
+
+Evaluate global model
+Averaged Train Loss: 0.9910
+Averaged Test Accuracy: 0.5076
+Averaged Test AUC: 0.8488
+Std Test Accuracy: 0.1274
+Std Test AUC: 0.0566
+------------------------- time cost ------------------------- 25.14519190788269
+
+-------------Round number: 69-------------
+
+Evaluate global model
+Averaged Train Loss: 1.0109
+Averaged Test Accuracy: 0.5052
+Averaged Test AUC: 0.8421
+Std Test Accuracy: 0.1220
+Std Test AUC: 0.0608
+------------------------- time cost ------------------------- 25.248620986938477
+
+-------------Round number: 70-------------
+
+Evaluate global model
+Averaged Train Loss: 0.9918
+Averaged Test Accuracy: 0.5112
+Averaged Test AUC: 0.8436
+Std Test Accuracy: 0.1233
+Std Test AUC: 0.0575
+------------------------- time cost ------------------------- 25.189055681228638
+
+-------------Round number: 71-------------
+
+Evaluate global model
+Averaged Train Loss: 0.9582
+Averaged Test Accuracy: 0.5144
+Averaged Test AUC: 0.8497
+Std Test Accuracy: 0.1291
+Std Test AUC: 0.0560
+------------------------- time cost ------------------------- 25.189323902130127
+
+-------------Round number: 72-------------
+
+Evaluate global model
+Averaged Train Loss: 0.9631
+Averaged Test Accuracy: 0.5219
+Averaged Test AUC: 0.8467
+Std Test Accuracy: 0.1324
+Std Test AUC: 0.0590
+------------------------- time cost ------------------------- 25.260063886642456
+
+-------------Round number: 73-------------
+
+Evaluate global model
+Averaged Train Loss: 0.9059
+Averaged Test Accuracy: 0.5347
+Averaged Test AUC: 0.8573
+Std Test Accuracy: 0.1475
+Std Test AUC: 0.0624
+------------------------- time cost ------------------------- 25.16666078567505
+
+-------------Round number: 74-------------
+
+Evaluate global model
+Averaged Train Loss: 0.9208
+Averaged Test Accuracy: 0.5311
+Averaged Test AUC: 0.8509
+Std Test Accuracy: 0.1311
+Std Test AUC: 0.0610
+------------------------- time cost ------------------------- 25.0034761428833
+
+-------------Round number: 75-------------
+
+Evaluate global model
+Averaged Train Loss: 0.9241
+Averaged Test Accuracy: 0.5309
+Averaged Test AUC: 0.8491
+Std Test Accuracy: 0.1409
+Std Test AUC: 0.0614
+------------------------- time cost ------------------------- 24.93879270553589
+
+-------------Round number: 76-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8714
+Averaged Test Accuracy: 0.5441
+Averaged Test AUC: 0.8588
+Std Test Accuracy: 0.1397
+Std Test AUC: 0.0589
+------------------------- time cost ------------------------- 24.924222230911255
+
+-------------Round number: 77-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8626
+Averaged Test Accuracy: 0.5450
+Averaged Test AUC: 0.8592
+Std Test Accuracy: 0.1442
+Std Test AUC: 0.0588
+------------------------- time cost ------------------------- 24.958897590637207
+
+-------------Round number: 78-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8428
+Averaged Test Accuracy: 0.5505
+Averaged Test AUC: 0.8603
+Std Test Accuracy: 0.1440
+Std Test AUC: 0.0607
+------------------------- time cost ------------------------- 25.005547523498535
+
+-------------Round number: 79-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8554
+Averaged Test Accuracy: 0.5505
+Averaged Test AUC: 0.8601
+Std Test Accuracy: 0.1377
+Std Test AUC: 0.0593
+------------------------- time cost ------------------------- 24.955896854400635
+
+-------------Round number: 80-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8726
+Averaged Test Accuracy: 0.5506
+Averaged Test AUC: 0.8559
+Std Test Accuracy: 0.1363
+Std Test AUC: 0.0616
+------------------------- time cost ------------------------- 24.981611490249634
+
+-------------Round number: 81-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8644
+Averaged Test Accuracy: 0.5469
+Averaged Test AUC: 0.8556
+Std Test Accuracy: 0.1403
+Std Test AUC: 0.0625
+------------------------- time cost ------------------------- 24.9488787651062
+
+-------------Round number: 82-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8203
+Averaged Test Accuracy: 0.5558
+Averaged Test AUC: 0.8604
+Std Test Accuracy: 0.1448
+Std Test AUC: 0.0595
+------------------------- time cost ------------------------- 24.921823501586914
+
+-------------Round number: 83-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8063
+Averaged Test Accuracy: 0.5620
+Averaged Test AUC: 0.8631
+Std Test Accuracy: 0.1412
+Std Test AUC: 0.0598
+------------------------- time cost ------------------------- 24.972058057785034
+
+-------------Round number: 84-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8227
+Averaged Test Accuracy: 0.5543
+Averaged Test AUC: 0.8598
+Std Test Accuracy: 0.1406
+Std Test AUC: 0.0608
+------------------------- time cost ------------------------- 24.923499584197998
+
+-------------Round number: 85-------------
+
+Evaluate global model
+Averaged Train Loss: 0.8133
+Averaged Test Accuracy: 0.5659
+Averaged Test AUC: 0.8616
+Std Test Accuracy: 0.1470
+Std Test AUC: 0.0632
+------------------------- time cost ------------------------- 24.96119999885559
+
+-------------Round number: 86-------------
+
+Evaluate global model
+Averaged Train Loss: 0.7744
+Averaged Test Accuracy: 0.5606
+Averaged Test AUC: 0.8645
+Std Test Accuracy: 0.1423
+Std Test AUC: 0.0610
+------------------------- time cost ------------------------- 24.929983139038086
+
+-------------Round number: 87-------------
+
+Evaluate global model
+Averaged Train Loss: 0.7700
+Averaged Test Accuracy: 0.5745
+Averaged Test AUC: 0.8657
+Std Test Accuracy: 0.1452
+Std Test AUC: 0.0607
+------------------------- time cost ------------------------- 24.96499991416931
+
+-------------Round number: 88-------------
+
+Evaluate global model
+Averaged Train Loss: 0.7652
+Averaged Test Accuracy: 0.5731
+Averaged Test AUC: 0.8669
+Std Test Accuracy: 0.1480
+Std Test AUC: 0.0658
+------------------------- time cost ------------------------- 25.1826171875
+
+-------------Round number: 89-------------
+
+Evaluate global model
+Averaged Train Loss: 0.7529
+Averaged Test Accuracy: 0.5739
+Averaged Test AUC: 0.8658
+Std Test Accuracy: 0.1508
+Std Test AUC: 0.0590
+------------------------- time cost ------------------------- 25.67038869857788
+
+-------------Round number: 90-------------
+
+Evaluate global model
+Averaged Train Loss: 0.7533
+Averaged Test Accuracy: 0.5767
+Averaged Test AUC: 0.8639
+Std Test Accuracy: 0.1548
+Std Test AUC: 0.0643
+------------------------- time cost ------------------------- 25.712275743484497
+
+-------------Round number: 91-------------
+
+Evaluate global model
+Averaged Train Loss: 0.7159
+Averaged Test Accuracy: 0.5849
+Averaged Test AUC: 0.8729
+Std Test Accuracy: 0.1435
+Std Test AUC: 0.0586
+------------------------- time cost ------------------------- 25.77575945854187
+
+-------------Round number: 92-------------
+
+Evaluate global model
+Averaged Train Loss: 0.7069
+Averaged Test Accuracy: 0.5795
+Averaged Test AUC: 0.8698
+Std Test Accuracy: 0.1530
+Std Test AUC: 0.0594
+------------------------- time cost ------------------------- 25.75008535385132
+
+-------------Round number: 93-------------
+
+Evaluate global model
+Averaged Train Loss: 0.7077
+Averaged Test Accuracy: 0.5883
+Averaged Test AUC: 0.8711
+Std Test Accuracy: 0.1529
+Std Test AUC: 0.0601
+------------------------- time cost ------------------------- 25.782783031463623
+
+-------------Round number: 94-------------
+
+Evaluate global model
+Averaged Train Loss: 0.7010
+Averaged Test Accuracy: 0.5977
+Averaged Test AUC: 0.8739
+Std Test Accuracy: 0.1478
+Std Test AUC: 0.0594
+------------------------- time cost ------------------------- 25.70607328414917
+
+-------------Round number: 95-------------
+
+Evaluate global model
+Averaged Train Loss: 0.6907
+Averaged Test Accuracy: 0.5887
+Averaged Test AUC: 0.8708
+Std Test Accuracy: 0.1472
+Std Test AUC: 0.0606
+------------------------- time cost ------------------------- 25.704705715179443
+
+-------------Round number: 96-------------
+
+Evaluate global model
+Averaged Train Loss: 0.6850
+Averaged Test Accuracy: 0.6049
+Averaged Test AUC: 0.8722
+Std Test Accuracy: 0.1492
+Std Test AUC: 0.0640
+------------------------- time cost ------------------------- 25.75869917869568
+
+-------------Round number: 97-------------
+
+Evaluate global model
+Averaged Train Loss: 0.6574
+Averaged Test Accuracy: 0.6057
+Averaged Test AUC: 0.8763
+Std Test Accuracy: 0.1557
+Std Test AUC: 0.0658
+------------------------- time cost ------------------------- 25.766026973724365
+
+-------------Round number: 98-------------
+
+Evaluate global model
+Averaged Train Loss: 0.6413
+Averaged Test Accuracy: 0.6098
+Averaged Test AUC: 0.8797
+Std Test Accuracy: 0.1655
+Std Test AUC: 0.0659
+------------------------- time cost ------------------------- 25.721960067749023
+
+-------------Round number: 99-------------
+
+Evaluate global model
+Averaged Train Loss: 0.6533
+Averaged Test Accuracy: 0.6054
+Averaged Test AUC: 0.8740
+Std Test Accuracy: 0.1567
+Std Test AUC: 0.0658
+------------------------- time cost ------------------------- 25.765950441360474
+
+-------------Round number: 100-------------
+
+Evaluate global model
+Averaged Train Loss: 0.6443
+Averaged Test Accuracy: 0.6055
+Averaged Test AUC: 0.8766
+Std Test Accuracy: 0.1556
+Std Test AUC: 0.0624
+------------------------- time cost ------------------------- 25.711644887924194
+
+Best accuracy.
+0.6098
+
+Average time cost per round.
+25.65391801118851
+File path: ../results/Cifar10_FedAvg_test_0.h5
+全局模型已保存到: results/exp_configs/global_model_Cifar10_FedAvg_test_1.pt
+
+============= 遗忘前评估 =============
+
+============= 遗忘前评估 =============
+客户端0 - 准确率: 0.7233, AUC: 0.9267, 测试样本数: 1500
+客户端1 - 准确率: 0.7433, AUC: 0.9370, 测试样本数: 1500
+客户端2 - 准确率: 0.3753, AUC: 0.7846, 测试样本数: 1500
+客户端3 - 准确率: 0.4073, AUC: 0.7957, 测试样本数: 1500
+客户端4 - 准确率: 0.4880, AUC: 0.8283, 测试样本数: 1500
+客户端5 - 准确率: 0.4860, AUC: 0.8281, 测试样本数: 1500
+客户端6 - 准确率: 0.8127, AUC: 0.9480, 测试样本数: 1500
+客户端7 - 准确率: 0.8047, AUC: 0.9556, 测试样本数: 1500
+客户端8 - 准确率: 0.6607, AUC: 0.9029, 测试样本数: 1500
+客户端9 - 准确率: 0.6127, AUC: 0.8681, 测试样本数: 1500
+
+平均准确率: 0.6114 ± 0.1544
+平均AUC: 0.8775 ± 0.0616
+评估结果已保存到: results/exp_configs/eval_pre_forget_Cifar10_FedAvg_test_1.json
+
+============= 遗忘前攻击评估 =============
+[遗忘前MIA] AUC: 0.4482, 最佳准确率: 0.5000, 最佳阈值: 0.00
+[遗忘前后门攻击] 后门样本准确率: 0.0833
+
+============= 开始遗忘阶段 =============
+目标遗忘客户端: 5
+优化配置已加载:
+  - 数据采样比例: 0.3
+  - 最大批次数: 8
+  - 并行进程数: 4
+  - 梯度缓存: 启用
+  - 最大缓存大小: 10
+增强分簇策略初始化完成
+智能权重平衡: True
+个性化保护: True
+遗忘效果预测: True
+遗忘难度分析: True
+动态簇间平衡: True
+联合优化: True
+高级多目标优化: True
+实时策略调整: True
+性能预测与预警: True
+客户端性能监控: True
+分簇策略配置:
+  - 多层次分簇: True
+  - 自适应阈值: True
+  - 基于分簇的遗忘: True
+  - 保护强度级别: weak
+知识锚点保护配置:
+  - 启用知识锚点: True
+  - 锚点损失权重: 0.5
+  - 锚点数据采样比例: 0.1
+  - 锚点保护起始轮次: 0
+平衡改进配置:
+  - 选择性锚点保护: True
+  - 选择性保护阈值: 0.6
+  - 渐进式权重: True
+  - 遗忘强度补偿: True
+  - 智能梯度组合: True
+计算优化配置:
+  - sample_ratio: 0.3
+  - max_batches: 8
+  - num_processes: 4
+  - use_gradient_caching: True
+  - max_cache_size: 10
+  - use_parallel_computation: True
+  - use_gradient_accumulation: True
+使用优化版梯度反转遗忘...
+
+============= 开始优化版梯度反转遗忘客户端 5 =============
+1. 提取客户端特征...
+2. 计算Wasserstein距离...
+计算客户端间的Wasserstein距离...
+客户端0与客户端1的Wasserstein距离: 0.7596
+客户端0与客户端2的Wasserstein距离: 0.9840
+客户端0与客户端3的Wasserstein距离: 0.9223
+客户端0与客户端4的Wasserstein距离: 1.4344
+客户端0与客户端5的Wasserstein距离: 0.8624
+客户端0与客户端6的Wasserstein距离: 0.4269
+客户端0与客户端7的Wasserstein距离: 0.4219
+客户端0与客户端8的Wasserstein距离: 0.8818
+客户端0与客户端9的Wasserstein距离: 0.5095
+客户端1与客户端2的Wasserstein距离: 0.2632
+客户端1与客户端3的Wasserstein距离: 0.2385
+客户端1与客户端4的Wasserstein距离: 0.7040
+客户端1与客户端5的Wasserstein距离: 0.2383
+客户端1与客户端6的Wasserstein距离: 0.4665
+客户端1与客户端7的Wasserstein距离: 0.3719
+客户端1与客户端8的Wasserstein距离: 0.2703
+客户端1与客户端9的Wasserstein距离: 0.3382
+客户端2与客户端3的Wasserstein距离: 0.2052
+客户端2与客户端4的Wasserstein距离: 0.5069
+客户端2与客户端5的Wasserstein距离: 0.2012
+客户端2与客户端6的Wasserstein距离: 0.7179
+客户端2与客户端7的Wasserstein距离: 0.5799
+客户端2与客户端8的Wasserstein距离: 0.2402
+客户端2与客户端9的Wasserstein距离: 0.5877
+客户端3与客户端4的Wasserstein距离: 0.6287
+客户端3与客户端5的Wasserstein距离: 0.2092
+客户端3与客户端6的Wasserstein距离: 0.6357
+客户端3与客户端7的Wasserstein距离: 0.5463
+客户端3与客户端8的Wasserstein距离: 0.1598
+客户端3与客户端9的Wasserstein距离: 0.5105
+客户端4与客户端5的Wasserstein距离: 0.5904
+客户端4与客户端6的Wasserstein距离: 1.1683
+客户端4与客户端7的Wasserstein距离: 1.0302
+客户端4与客户端8的Wasserstein距离: 0.6363
+客户端4与客户端9的Wasserstein距离: 1.0372
+客户端5与客户端6的Wasserstein距离: 0.6015
+客户端5与客户端7的Wasserstein距离: 0.4666
+客户端5与客户端8的Wasserstein距离: 0.1862
+客户端5与客户端9的Wasserstein距离: 0.4707
+客户端6与客户端7的Wasserstein距离: 0.2337
+客户端6与客户端8的Wasserstein距离: 0.6064
+客户端6与客户端9的Wasserstein距离: 0.2395
+客户端7与客户端8的Wasserstein距离: 0.4848
+客户端7与客户端9的Wasserstein距离: 0.2398
+客户端8与客户端9的Wasserstein距离: 0.4739
+3. 客户端分簇...
+
+============= 开始增强分簇策略 =============
+1. 计算自适应阈值...
+  使用智能自适应阈值计算...
+    应用个性化保护策略...
+    权重已更新: {'distribution_similarity': 0.4356435643564356, 'gradient_similarity': 0.2673267326732673, 'forget_difficulty': 0.19801980198019797, 'client_protection': 0.09900990099009899}
+    预测遗忘效果影响...
+    遗忘影响预测完成: {0: 'low_impact', 1: 'medium_impact', 2: 'medium_impact', 3: 'medium_impact', 4: 'low_impact', 5: 'medium_impact', 6: 'medium_impact', 7: 'medium_impact', 8: 'medium_impact', 9: 'medium_impact'}
+  智能阈值计算完成，基础阈值: 1.2315
+自适应阈值: {'high': 0.9852338574149395, 'medium': 1.2315423217686743, 'low': 1.9212060219591318, 'smart_thresholds': array([[1.60100502, 1.92120602, 1.92120602, 1.92120602, 1.92120602,
+        1.92120602, 1.92120602, 1.92120602, 1.92120602, 1.92120602],
+       [0.98523386, 1.23154232, 0.98523386, 0.98523386, 0.98523386,
+        0.98523386, 0.98523386, 0.98523386, 0.98523386, 0.98523386],
+       [1.23154232, 1.23154232, 1.23154232, 1.23154232, 1.23154232,
+        1.23154232, 1.23154232, 1.23154232, 1.23154232, 1.23154232],
+       [1.23154232, 1.23154232, 1.23154232, 1.23154232, 1.23154232,
+        1.23154232, 1.23154232, 1.23154232, 1.23154232, 1.23154232],
+       [1.92120602, 1.92120602, 1.92120602, 1.92120602, 1.60100502,
+        1.92120602, 1.92120602, 1.92120602, 1.92120602, 1.92120602],
+       [0.98523386, 0.98523386, 0.98523386, 0.98523386, 0.98523386,
+        1.23154232, 0.98523386, 0.98523386, 0.98523386, 0.98523386],
+       [1.47785079, 1.47785079, 1.47785079, 1.47785079, 1.47785079,
+        1.47785079, 1.23154232, 1.47785079, 1.47785079, 1.47785079],
+       [1.23154232, 1.23154232, 1.23154232, 1.23154232, 1.23154232,
+        1.23154232, 1.23154232, 1.23154232, 1.23154232, 1.23154232],
+       [0.98523386, 0.98523386, 0.98523386, 0.98523386, 0.98523386,
+        0.98523386, 0.98523386, 0.98523386, 1.23154232, 0.98523386],
+       [1.23154232, 1.23154232, 1.23154232, 1.23154232, 1.23154232,
+        1.23154232, 1.23154232, 1.23154232, 1.23154232, 1.23154232]]), 'statistics': {'mean': 0.4857749270309102, 'std': 0.320251209039145, 'q25': 0.23853332887996337, 'q50': 0.4722980667244305, 'q75': 0.6357369260354477, 'iqr': 0.39720359715548437}}
+2. 执行多层次分簇策略...
+执行多层次分簇策略...
+第一层：基于分布相似性的粗分簇
+目标客户端5分配到簇0
+与目标客户端的距离排序:
+  客户端8: 0.1862
+  客户端2: 0.2012
+  客户端3: 0.2092
+  客户端1: 0.2383
+  客户端7: 0.4666
+  客户端9: 0.4707
+  客户端4: 0.5904
+  客户端6: 0.6015
+  客户端0: 0.8624
+高相似度客户端[8, 2, 3, 1, 7, 9, 4, 6, 0]分配到簇1
+第二层：基于梯度相似性的细分簇
+基于梯度相似性进行细分簇...
+细分簇1，成员: [0 1 2 3 4 6 7 8 9]
+簇1细分为3个子簇
+簇标签重映射（保持目标客户端隔离）: {0: 0, 1: 1, 2: 2, 3: 3}
+重映射后簇标签: [1 3 3 3 2 0 1 1 3 1]
+✅ 最终验证通过：目标客户端5独立成簇0
+✅ 细分簇后目标客户端5仍保持独立成簇0
+第三层：基于遗忘需求的优化分簇
+基于遗忘效果优化分簇...
+当前分簇的遗忘效果评分: 170065.3707
+    修复候选方案：客户端[0, 1, 2, 3, 6, 7, 8, 9]与目标客户端5在同一簇
+  智能重新分配8个客户端...
+    客户端0分配到新簇2
+    客户端1分配到新簇3
+    客户端2重新分配到簇3
+    客户端3重新分配到簇3
+    客户端6重新分配到簇2
+    客户端7重新分配到簇2
+    客户端8重新分配到簇3
+    客户端9重新分配到簇2
+    修复完成：目标客户端5独立成簇0
+    修复候选方案：客户端[0, 6, 7, 9]与目标客户端5在同一簇
+  智能重新分配4个客户端...
+    客户端0分配到新簇3
+    客户端6重新分配到簇3
+    客户端7重新分配到簇3
+    客户端9重新分配到簇3
+    修复完成：目标客户端5独立成簇0
+    修复候选方案：客户端[0, 6, 7, 9]与目标客户端5在同一簇
+  智能重新分配4个客户端...
+    客户端0分配到新簇3
+    客户端6重新分配到簇3
+    客户端7重新分配到簇3
+    客户端9重新分配到簇3
+    修复完成：目标客户端5独立成簇0
+    生成强制隔离分簇方案...
+    强制隔离方案：目标客户端5独立成簇0，其他客户端分为4个簇
+成功生成 4 个候选分簇方案
+候选方案4获得更高评分: 170065.4378
+分簇优化完成，评分从170065.3707提升到170065.4378
+验证目标客户端5的簇隔离性...
+✅ 目标客户端5已独立成簇
+3. 基于遗忘效果优化分簇...
+基于遗忘效果优化分簇...
+当前分簇的遗忘效果评分: 170065.4378
+    修复候选方案：客户端[0, 1, 2, 3, 6, 7, 8, 9]与目标客户端5在同一簇
+  智能重新分配8个客户端...
+    客户端0分配到新簇2
+    客户端1分配到新簇3
+    客户端2重新分配到簇3
+    客户端3重新分配到簇3
+    客户端6重新分配到簇2
+    客户端7重新分配到簇2
+    客户端8重新分配到簇3
+    客户端9重新分配到簇2
+    修复完成：目标客户端5独立成簇0
+    修复候选方案：客户端[0, 6, 7, 9]与目标客户端5在同一簇
+  智能重新分配4个客户端...
+    客户端0分配到新簇3
+    客户端6重新分配到簇3
+    客户端7重新分配到簇3
+    客户端9重新分配到簇3
+    修复完成：目标客户端5独立成簇0
+    修复候选方案：客户端[0, 6, 7, 9]与目标客户端5在同一簇
+  智能重新分配4个客户端...
+    客户端0分配到新簇3
+    客户端6重新分配到簇3
+    客户端7重新分配到簇3
+    客户端9重新分配到簇3
+    修复完成：目标客户端5独立成簇0
+    生成强制隔离分簇方案...
+    强制隔离方案：目标客户端5独立成簇0，其他客户端分为4个簇
+成功生成 4 个候选分簇方案
+当前分簇已是最优，无需优化
+4. 执行第二阶段分簇策略优化...
+  分析遗忘难度...
+    遗忘难度分析完成:
+      容易遗忘: [0, 5, 6, 9]
+      中等难度: [1, 4, 7]
+      难以遗忘: [2, 3, 8]
+  遗忘难度分析结果:
+    客户端 0: easy (评分: 0.3341)
+    客户端 1: medium (评分: 0.6611)
+    客户端 2: hard (评分: 0.7124)
+    客户端 3: hard (评分: 0.6978)
+    客户端 4: medium (评分: 0.5547)
+    客户端 5: easy (评分: 0.0000)
+    客户端 6: easy (评分: 0.4475)
+    客户端 7: medium (评分: 0.5200)
+    客户端 8: hard (评分: 0.7104)
+    客户端 9: easy (评分: 0.5181)
+  执行动态簇间平衡...
+    当前平衡评分: 0.4316
+      执行簇间平衡优化...
+        客户端 2 从簇 1 重新分配到簇 2
+    优化后平衡评分: 0.5091
+    平衡性改善: 0.0775
+  执行联合优化分簇策略...
+    初始联合目标评分: 0.2803
+      迭代 2: 评分提升到 0.2977
+      迭代 5: 评分提升到 0.3046
+      迭代 6: 评分提升到 0.4795
+    联合优化完成，最终评分: 0.4795
+5. 检测异常客户端...
+    检测异常客户端...
+    异常客户端检测完成，共发现 0 个异常客户端
+6. 评估分簇质量...
+    评估分簇质量...
+    分簇质量评估完成:
+      轮廓系数: -0.0475
+      Calinski-Harabasz指数: 2.7468
+      簇内凝聚度: 1.5849
+      簇间分离度: 3.1498
+8. 保存分析结果...
+    保存分析结果...
+      分析结果已保存到: clustering_analysis_20260120_001022.json
+9. 最终簇标签重映射...
+簇标签重映射（保持目标客户端隔离）: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4}
+重映射后簇标签: [4 3 2 1 2 0 0 3 1 3]
+❌ 最终验证失败：目标客户端5簇0包含其他客户端[5 6]
+10. 最终隔离性验证...
+验证目标客户端5的簇隔离性...
+⚠️  发现违规：客户端[6]与目标客户端5在同一簇0
+正在修复簇分配...
+  智能重新分配1个客户端...
+    客户端6重新分配到簇3
+✅ 簇隔离性修复完成
+
+============= 分簇结果最终验证 =============
+✅ 最终验证通过：目标客户端5独立成簇0
+✅ 分簇策略执行成功！
+
+============= 最终分簇结果 =============
+分簇结果: [4 3 2 1 2 0 3 3 1 3]
+目标客户端5所在簇: 0
+异常客户端: []
+分簇结果: [4 3 2 1 2 0 3 3 1 3]
+异常客户端: []
+4. 生成遗忘掩码...
+5. 开始优化版梯度反转训练...
+6. 初始化知识锚点保护...
+  锚点客户端数量: 9
+  锚点损失权重: 0.5
+  锚点数据采样比例: 0.1
+  锚点保护起始轮次: 0
+改进的其他客户端重要性权重: [1.78489567 1.66594229 0.78869798 0.85428601 0.8101832  0.8625689
+ 0.85770599 0.70254612 0.67317384]
+7. 预计算自适应遗忘强度矩阵...
+预计算自适应遗忘强度矩阵...
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.0252
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.0300
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.0300
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.0315
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.0300
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.0270
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.0270
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.0315
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.0270
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.0504
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.0600
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.0600
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.0630
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.0600
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.0540
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.0540
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.0630
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.0540
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.0756
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.0900
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.0900
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.0945
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.0900
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.0810
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.0810
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.0945
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.0810
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.1008
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.1200
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.1200
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.1260
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.1200
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.1080
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.1080
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.1260
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.1080
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.1260
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.1500
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.1500
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.1575
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.1500
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.1350
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.1350
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.1575
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.1350
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.1512
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.1800
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.1800
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.1890
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.1800
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.1620
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.1620
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.1890
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.1620
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.1764
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.2100
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.2100
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.2205
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.2100
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.1890
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.1890
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.2205
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.1890
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.2016
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.2400
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.2400
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.2520
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.2400
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.2160
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.2160
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.2520
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.2160
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.2268
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.2700
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.2700
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.2835
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.2700
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.2430
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.2430
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.2835
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.2430
+客户端0 - 簇4, 距离目标: 0.0000, 簇内一致性: 0.0000, 遗忘强度: 0.2520
+客户端1 - 簇3, 距离目标: 0.7596, 簇内一致性: 0.3149, 遗忘强度: 0.3000
+客户端2 - 簇2, 距离目标: 0.9840, 簇内一致性: 0.5069, 遗忘强度: 0.3000
+客户端3 - 簇1, 距离目标: 0.9223, 簇内一致性: 0.1598, 遗忘强度: 0.3150
+客户端4 - 簇2, 距离目标: 1.4344, 簇内一致性: 0.5069, 遗忘强度: 0.3000
+客户端6 - 簇3, 距离目标: 0.4269, 簇内一致性: 0.3149, 遗忘强度: 0.2700
+客户端7 - 簇3, 距离目标: 0.4219, 簇内一致性: 0.3149, 遗忘强度: 0.2700
+客户端8 - 簇1, 距离目标: 0.8818, 簇内一致性: 0.1598, 遗忘强度: 0.3150
+客户端9 - 簇3, 距离目标: 0.5095, 簇内一致性: 0.3149, 遗忘强度: 0.2700
+预计算完成，矩阵大小: 10 x 9
+Epoch 0: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+梯度已缓存，缓存键: e0034d559a3d8c8ffe06...
+Epoch 0: 优化版梯度反转训练中... (补偿遗忘强度: 0.030 (基础: 0.030), 保护缩放: 0.533)
+  梯度量级诊断 - 反转梯度: 0.099818, 组合梯度: 0.570847, 比例: 0.175
+  ⚠️ 智能梯度组合已调整保护梯度
+Epoch 1: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+并行计算失败，回退到串行计算: Attempted to send CUDA tensor received from another process; this is not currently supported. Consider cloning before sending.
+梯度已缓存，缓存键: 3c120af0201dfb18fe06...
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.152
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.166
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.179
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.183
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.183
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.197
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.178
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.182
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.179
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.187
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.166
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.196
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.184
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.216
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.201
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.204
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.193
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.169
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.178
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.192
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.199
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.190
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.242
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.199
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.180
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.217
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.227
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.166
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.181
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.190
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.170
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.142
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.171
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.156
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.147
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.178
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.161
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.176
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.178
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.161
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.162
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.183
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.157
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.157
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.113
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.175
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.147
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.137
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.183
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.192
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.287
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.166
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.221
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.287
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.151
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.101
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.090
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.140
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.170
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.391
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.448
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.547
+Epoch 2: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+并行计算失败，回退到串行计算: Attempted to send CUDA tensor received from another process; this is not currently supported. Consider cloning before sending.
+[W CudaIPCTypes.cpp:92] Producer process tried to deallocate over 1000 memory blocks referred by consumer processes. Deallocation might be significantly slowed down. We assume it will never going to be the case, but if it is, please file but to https://github.com/pytorch/pytorch
+梯度已缓存，缓存键: aa2cf300f9f77dbefe06...
+Epoch 2: 优化版梯度反转训练中... (补偿遗忘强度: 0.090 (基础: 0.090), 保护缩放: 0.533)
+  梯度量级诊断 - 反转梯度: 1.039267, 组合梯度: 3.397006, 比例: 0.306
+  ⚠️ 智能梯度组合已调整保护梯度
+Epoch 3: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+并行计算失败，回退到串行计算: Attempted to send CUDA tensor received from another process; this is not currently supported. Consider cloning before sending.
+梯度已缓存，缓存键: 05c66a7f14ef76b8fe06...
+Epoch 4: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+并行计算失败，回退到串行计算: Attempted to send CUDA tensor received from another process; this is not currently supported. Consider cloning before sending.
+梯度已缓存，缓存键: b08d1b53ce2f583efe06...
+Epoch 4: 优化版梯度反转训练中... (补偿遗忘强度: 0.165 (基础: 0.150), 保护缩放: 0.533)
+  梯度量级诊断 - 反转梯度: 2.786972, 组合梯度: 4.210829, 比例: 0.662
+  ⚠️ 智能梯度组合已调整保护梯度
+Epoch 5: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+并行计算失败，回退到串行计算: Attempted to send CUDA tensor received from another process; this is not currently supported. Consider cloning before sending.
+梯度已缓存，缓存键: c73a9dd4522d13f1fe06...
+Epoch 6: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+并行计算失败，回退到串行计算: Attempted to send CUDA tensor received from another process; this is not currently supported. Consider cloning before sending.
+梯度已缓存，缓存键: 46db2a701664486bfe06...
+  ⚠️ 保护梯度过大，调整因子: 0.771, 比例: 1.156
+  ⚠️ 保护梯度过大，调整因子: 0.846, 比例: 1.269
+  ⚠️ 保护梯度过大，调整因子: 0.945, 比例: 1.417
+  ⚠️ 保护梯度过大，调整因子: 0.795, 比例: 1.193
+  ⚠️ 保护梯度过大，调整因子: 0.932, 比例: 1.399
+  ⚠️ 保护梯度过大，调整因子: 0.842, 比例: 1.263
+  ⚠️ 保护梯度过大，调整因子: 0.668, 比例: 1.002
+  ⚠️ 保护梯度过大，调整因子: 0.786, 比例: 1.179
+  ⚠️ 保护梯度过大，调整因子: 0.824, 比例: 1.236
+  ⚠️ 保护梯度过大，调整因子: 0.726, 比例: 1.089
+  ⚠️ 保护梯度过大，调整因子: 0.819, 比例: 1.229
+  ⚠️ 保护梯度过大，调整因子: 0.800, 比例: 1.200
+  ⚠️ 保护梯度过大，调整因子: 0.846, 比例: 1.269
+  ⚠️ 保护梯度过大，调整因子: 0.707, 比例: 1.060
+  ⚠️ 保护梯度过大，调整因子: 0.819, 比例: 1.229
+  ⚠️ 保护梯度过大，调整因子: 0.716, 比例: 1.075
+  ⚠️ 保护梯度过大，调整因子: 0.724, 比例: 1.086
+  ⚠️ 保护梯度过大，调整因子: 0.746, 比例: 1.119
+  ⚠️ 保护梯度过大，调整因子: 0.723, 比例: 1.084
+  ⚠️ 保护梯度过大，调整因子: 0.934, 比例: 1.401
+  ⚠️ 保护梯度过大，调整因子: 0.806, 比例: 1.209
+  ⚠️ 保护梯度过大，调整因子: 0.906, 比例: 1.359
+  ⚠️ 保护梯度过大，调整因子: 0.934, 比例: 1.401
+  ⚠️ 保护梯度过大，调整因子: 0.735, 比例: 1.102
+  ⚠️ 保护梯度过大，调整因子: 0.742, 比例: 1.113
+  ⚠️ 保护梯度过大，调整因子: 0.703, 比例: 1.054
+  ⚠️ 保护梯度过大，调整因子: 0.691, 比例: 1.037
+  ⚠️ 保护梯度过大，调整因子: 0.821, 比例: 1.231
+  ⚠️ 保护梯度过大，调整因子: 0.831, 比例: 1.247
+  ⚠️ 保护梯度过大，调整因子: 0.701, 比例: 1.051
+  ⚠️ 保护梯度过大，调整因子: 0.654, 比例: 0.981
+  ⚠️ 保护梯度过大，调整因子: 0.558, 比例: 0.837
+  ⚠️ 保护梯度过大，调整因子: 0.625, 比例: 0.938
+  ⚠️ 保护梯度过大，调整因子: 0.833, 比例: 1.250
+  ⚠️ 保护梯度过大，调整因子: 0.674, 比例: 1.011
+  ⚠️ 保护梯度过大，调整因子: 0.678, 比例: 1.017
+  ⚠️ 保护梯度过大，调整因子: 0.691, 比例: 1.036
+  ⚠️ 保护梯度过大，调整因子: 0.674, 比例: 1.011
+  ⚠️ 保护梯度过大，调整因子: 0.670, 比例: 1.005
+  ⚠️ 保护梯度过大，调整因子: 0.766, 比例: 1.148
+  ⚠️ 保护梯度过大，调整因子: 0.654, 比例: 0.981
+  ⚠️ 保护梯度过大，调整因子: 0.622, 比例: 0.933
+  ⚠️ 保护梯度过大，调整因子: 0.970, 比例: 1.454
+  ⚠️ 保护梯度过大，调整因子: 0.500, 比例: 0.725
+  ⚠️ 保护梯度过大，调整因子: 0.686, 比例: 1.029
+  ⚠️ 保护梯度过大，调整因子: 0.665, 比例: 0.997
+  ⚠️ 保护梯度过大，调整因子: 0.703, 比例: 1.055
+  ⚠️ 保护梯度过大，调整因子: 0.698, 比例: 1.047
+  ⚠️ 保护梯度过大，调整因子: 0.993, 比例: 1.489
+  ⚠️ 保护梯度过大，调整因子: 0.764, 比例: 1.147
+  ⚠️ 保护梯度过大，调整因子: 0.679, 比例: 1.018
+  ⚠️ 保护梯度过大，调整因子: 0.771, 比例: 1.156
+  ⚠️ 保护梯度过大，调整因子: 0.720, 比例: 1.079
+  ⚠️ 保护梯度过大，调整因子: 0.721, 比例: 1.082
+  ⚠️ 保护梯度过大，调整因子: 0.714, 比例: 1.070
+Epoch 6: 优化版梯度反转训练中... (补偿遗忘强度: 0.231 (基础: 0.210), 保护缩放: 0.533)
+  梯度量级诊断 - 反转梯度: 5.530834, 组合梯度: 4.060903, 比例: 1.362
+  ⚠️ 智能梯度组合已调整保护梯度
+Epoch 7: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+并行计算失败，回退到串行计算: Attempted to send CUDA tensor received from another process; this is not currently supported. Consider cloning before sending.
+梯度已缓存，缓存键: af7a9769aa85cdadfe06...
+Epoch 8: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+并行计算失败，回退到串行计算: Attempted to send CUDA tensor received from another process; this is not currently supported. Consider cloning before sending.
+梯度已缓存，缓存键: 5c6bf8600fa3340bfe06...
+Epoch 8: 优化版梯度反转训练中... (补偿遗忘强度: 0.351 (基础: 0.270), 保护缩放: 0.533)
+  梯度量级诊断 - 反转梯度: 10.119646, 组合梯度: 4.874250, 比例: 2.076
+Epoch 9: 模型发生变化，重新计算梯度...
+计算目标客户端梯度...
+并行计算其他客户端梯度...
+使用 4 个进程并行计算梯度...
+并行计算失败，回退到串行计算: Attempted to send CUDA tensor received from another process; this is not currently supported. Consider cloning before sending.
+梯度已缓存，缓存键: 75f06d1cd39704abfe06...
+优化版梯度反转遗忘完成！
+
+============= 改进的遗忘效果验证 =============
+目标客户端遗忘后准确率: 0.0000
+客户端0遗忘后准确率: 0.6836 (变化: -0.0597)
+客户端1遗忘后准确率: 0.6816 (变化: +0.3063)
+客户端2遗忘后准确率: 0.5098 (变化: +0.1024)
+客户端3遗忘后准确率: 0.4775 (变化: -0.0105)
+客户端4遗忘后准确率: 0.0000 (变化: -0.4860)
+客户端6遗忘后准确率: 0.7578 (变化: -0.0549)
+客户端7遗忘后准确率: 0.7979 (变化: -0.0068)
+客户端8遗忘后准确率: 0.8340 (变化: +0.1733)
+客户端9遗忘后准确率: 0.7969 (变化: +0.1842)
+其他客户端平均准确率: 0.6155
+
+============= 保护效果分析 =============
+性能变化排序（从最差到最好）:
+  客户端4: -0.4860 (遗忘前: 0.4860 → 遗忘后: 0.0000, 严重下降)
+  客户端0: -0.0597 (遗忘前: 0.7433 → 遗忘后: 0.6836, 轻微下降)
+  客户端6: -0.0549 (遗忘前: 0.8127 → 遗忘后: 0.7578, 轻微下降)
+  客户端3: -0.0105 (遗忘前: 0.4880 → 遗忘后: 0.4775, 轻微下降)
+  客户端7: -0.0068 (遗忘前: 0.8047 → 遗忘后: 0.7979, 轻微下降)
+  客户端2: +0.1024 (遗忘前: 0.4073 → 遗忘后: 0.5098, 保持良好)
+  客户端8: +0.1733 (遗忘前: 0.6607 → 遗忘后: 0.8340, 保持良好)
+  客户端9: +0.1842 (遗忘前: 0.6127 → 遗忘后: 0.7969, 保持良好)
+  客户端1: +0.3063 (遗忘前: 0.3753 → 遗忘后: 0.6816, 保持良好)
+
+保护效果统计:
+  严重下降的客户端: 1
+  明显下降的客户端: 0
+  保护良好的客户端: 8
+建议：需要进一步改进保护策略，特别是对相似客户端的保护
+良好：其他客户端性能保持较好
+
+============= 性能优化统计 =============
+梯度计算统计:
+  - 总计算次数: 10
+  - 缓存命中次数: 0
+  - 缓存命中率: 0.00%
+  - 平均梯度计算时间: 3.60秒
+内存使用统计:
+  - 最大内存使用: 8750.81MB
+优化配置效果:
+  - sample_ratio: 0.3
+  - max_batches: 8
+  - num_processes: 4
+  - use_gradient_caching: True
+  - max_cache_size: 10
+  - use_parallel_computation: True
+  - use_gradient_accumulation: True
+遗忘后模型已保存到: results/exp_configs/forget_model_Cifar10_FedAvg_test_1.pt
+
+============= 遗忘后评估 =============
+
+============= 遗忘后评估 =============
+客户端0 - 准确率: 0.6800, AUC: 0.8739, 测试样本数: 1500
+客户端1 - 准确率: 0.6807, AUC: 0.8751, 测试样本数: 1500
+客户端2 - 准确率: 0.5027, AUC: 0.8116, 测试样本数: 1500
+客户端3 - 准确率: 0.4807, AUC: 0.8029, 测试样本数: 1500
+提示：客户端4使用测试集评估，测试样本数=1500，但准确率为0（可能模型完全预测错误）
+客户端4 - 准确率: 0.0000, AUC: 0.0598, 测试样本数: 1500
+提示：客户端5使用测试集评估，测试样本数=1500，但准确率为0（可能模型完全预测错误）
+  调试：检查客户端5的预测分布...
+  客户端5前100个样本 - 真实标签分布: {4: 67, 5: 61}
+  客户端5前100个样本 - 预测标签分布: {3: 64, 6: 15, 0: 7, 2: 16, 9: 8, 7: 11, 1: 2, 8: 5}
+  标签4的样本数: 67
+  标签4样本的平均logits (前5个): [ 3.8864782  2.2222788  3.3113225  5.0395646 -3.8346663]
+  标签4样本的平均logits (后5个): [-3.506997   3.354853   3.3029578  3.8734512  2.783697 ]
+  标签4样本的预测类别分布: {3: 30, 6: 11, 0: 6, 2: 10, 9: 2, 1: 2, 7: 4, 8: 2}
+  标签5的样本数: 61
+  标签5样本的平均logits (前5个): [ 1.008114   4.8455076  3.0377893  6.944719  -2.8873858]
+  标签5样本的平均logits (后5个): [-5.9026184  4.1326942  4.3746114  2.2170315  4.9939246]
+  标签5样本的预测类别分布: {3: 34, 7: 7, 2: 6, 8: 3, 9: 6, 6: 4, 0: 1}
+  检查模型参数设置...
+  模型输出层形状: torch.Size([10])
+  模型是否在eval模式: True
+客户端5 - 准确率: 0.0000, AUC: 0.0585, 测试样本数: 1500
+客户端6 - 准确率: 0.7560, AUC: 0.9243, 测试样本数: 1500
+客户端7 - 准确率: 0.7867, AUC: 0.9237, 测试样本数: 1500
+客户端8 - 准确率: 0.8213, AUC: 0.8967, 测试样本数: 1500
+客户端9 - 准确率: 0.7907, AUC: 0.8894, 测试样本数: 1500
+
+平均准确率: 0.5499 ± 0.2960
+平均AUC: 0.7116 ± 0.3285
+评估结果已保存到: results/exp_configs/eval_post_forget_Cifar10_FedAvg_test_1.json
+
+============= 遗忘效果分析 =============
+目标客户端(5) 遗忘前: 0.4860 遗忘后: 0.0000
+目标客户端(5) 变化量: -0.4860 (相对 -100.00%)
+其他客户端 平均变化量: -0.0144 (相对 -2.04%)
+
+============= 开始恢复阶段 =============
+其他客户端性能变化: -2.04%
+恢复训练轮数: 5
+
+============= 开始恢复阶段训练 =============
+排除目标客户端: 5
+恢复训练轮数: 5
+恢复阶段将进行 5 轮训练
+参与训练的客户端: [0, 1, 2, 3, 4, 6, 7, 8, 9]
+排除的客户端: [5]，选择的客户端: [7, 8, 4, 2, 6, 9, 3, 1, 0]
+
+--- 恢复阶段第 1 轮 ---
+选中的客户端: [7, 8, 4, 2, 6, 9, 3, 1, 0]
+
+评估恢复阶段第 1 轮模型
+Averaged Train Loss: 1.3788
+Averaged Test Accuracy: 0.7950
+Averaged Test AUC: 0.8942
+Std Test Accuracy: 0.2699
+Std Test AUC: 0.2786
+恢复阶段第 1 轮时间成本: 24.43s
+排除的客户端: [5]，选择的客户端: [0, 4, 7, 2, 3, 1, 9, 6, 8]
+
+--- 恢复阶段第 2 轮 ---
+选中的客户端: [0, 4, 7, 2, 3, 1, 9, 6, 8]
+
+评估恢复阶段第 2 轮模型
+Averaged Train Loss: 1.0743
+Averaged Test Accuracy: 0.7919
+Averaged Test AUC: 0.8967
+Std Test Accuracy: 0.2702
+Std Test AUC: 0.2733
+恢复阶段第 2 轮时间成本: 24.50s
+排除的客户端: [5]，选择的客户端: [7, 0, 8, 3, 2, 6, 9, 4, 1]
+
+--- 恢复阶段第 3 轮 ---
+选中的客户端: [7, 0, 8, 3, 2, 6, 9, 4, 1]
+
+评估恢复阶段第 3 轮模型
+Averaged Train Loss: 0.8635
+Averaged Test Accuracy: 0.7911
+Averaged Test AUC: 0.9000
+Std Test Accuracy: 0.2696
+Std Test AUC: 0.2624
+恢复阶段第 3 轮时间成本: 24.66s
+排除的客户端: [5]，选择的客户端: [3, 1, 0, 4, 9, 6, 8, 7, 2]
+
+--- 恢复阶段第 4 轮 ---
+选中的客户端: [3, 1, 0, 4, 9, 6, 8, 7, 2]
+
+评估恢复阶段第 4 轮模型
+Averaged Train Loss: 0.6936
+Averaged Test Accuracy: 0.7985
+Averaged Test AUC: 0.9055
+Std Test Accuracy: 0.2724
+Std Test AUC: 0.2488
+恢复阶段第 4 轮时间成本: 24.66s
+排除的客户端: [5]，选择的客户端: [7, 9, 1, 3, 4, 0, 8, 2, 6]
+
+--- 恢复阶段第 5 轮 ---
+选中的客户端: [7, 9, 1, 3, 4, 0, 8, 2, 6]
+
+评估恢复阶段第 5 轮模型
+Averaged Train Loss: 0.5682
+Averaged Test Accuracy: 0.7946
+Averaged Test AUC: 0.9131
+Std Test Accuracy: 0.2714
+Std Test AUC: 0.2258
+恢复阶段第 5 轮时间成本: 24.64s
+
+============= 恢复阶段训练完成 =============
+恢复阶段结果:
+  第 1 轮 - 测试准确率: 0.7950, 测试AUC: 0.0000
+  第 2 轮 - 测试准确率: 0.7919, 测试AUC: 0.0000
+  第 3 轮 - 测试准确率: 0.7911, 测试AUC: 0.0000
+  第 4 轮 - 测试准确率: 0.7985, 测试AUC: 0.0000
+  第 5 轮 - 测试准确率: 0.7946, 测试AUC: 0.0000
+恢复后模型已保存到: results/exp_configs/recovery_model_Cifar10_FedAvg_test_1.pt
+
+============= 恢复后评估 =============
+
+============= 恢复后评估 =============
+客户端0 - 准确率: 0.8787, AUC: 0.9655, 测试样本数: 1500
+客户端1 - 准确率: 0.8600, AUC: 0.9587, 测试样本数: 1500
+客户端2 - 准确率: 0.6807, AUC: 0.8865, 测试样本数: 1500
+客户端3 - 准确率: 0.6713, AUC: 0.8763, 测试样本数: 1500
+客户端4 - 准确率: 0.0080, AUC: 0.3256, 测试样本数: 1500
+客户端5 - 准确率: 0.0013, AUC: 0.3284, 测试样本数: 1500
+客户端6 - 准确率: 0.9193, AUC: 0.9824, 测试样本数: 1500
+客户端7 - 准确率: 0.9193, AUC: 0.9821, 测试样本数: 1500
+客户端8 - 准确率: 0.8793, AUC: 0.9653, 测试样本数: 1500
+客户端9 - 准确率: 0.8127, AUC: 0.9409, 测试样本数: 1500
+
+平均准确率: 0.6631 ± 0.3396
+平均AUC: 0.8212 ± 0.2495
+评估结果已保存到: results/exp_configs/eval_post_recovery_Cifar10_FedAvg_test_1.json
+恢复效果: 平均准确率提升 0.1132 (20.59%)
+遗忘效果汇总已保存到: results/exp_configs/forget_effect_Cifar10_FedAvg_test_1.json
+
+============= 遗忘后攻击评估 =============
+[遗忘后MIA] AUC: 0.4995, 最佳准确率: 0.5284, 最佳阈值: 0.48
+[遗忘后后门攻击] 后门样本准确率: 0.0052
+
+Average time cost: 2818.98s.
+Length:  101
+std for best accuracy: 0.0
+mean for best accuracy: 0.6098
+All done!
+
+Storage on cuda:0
+-------------------------------------------------------------------------------
+Total Tensors: 369119246 	Used Memory: 981.76M
+The allocated memory on cuda:0: 4.59G
+Memory differs due to the matrix alignment or invisible gradient buffer tensors
+-------------------------------------------------------------------------------
+[W CudaIPCTypes.cpp:15] Producer process has been terminated before all shared CUDA tensors released. See Note [Sharing CUDA tensors]

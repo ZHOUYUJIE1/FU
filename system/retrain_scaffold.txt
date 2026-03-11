@@ -1,0 +1,1306 @@
+==================================================
+goal = test
+device = cuda
+device_id = 0
+dataset = Cifar10
+num_classes = 10
+model = ResNet18
+batch_size = 32
+local_learning_rate = 0.005
+learning_rate_decay = False
+learning_rate_decay_gamma = 0.99
+global_rounds = 100
+top_cnt = 100
+local_epochs = 1
+algorithm = SCAFFOLD
+server_learning_rate = 1.0
+join_ratio = 1.0
+random_join_ratio = False
+num_clients = 10
+prev = 0
+times = 1
+eval_gap = 1
+save_folder_name = items
+auto_break = False
+dlg_eval = False
+dlg_gap = 100
+batch_num_per_client = 2
+num_new_clients = 0
+fine_tuning_epoch_new = 0
+feature_dim = 512
+vocab_size = 80
+max_len = 200
+few_shot = 0
+client_drop_rate = 0.0
+train_slow_rate = 0.0
+send_slow_rate = 0.0
+time_select = False
+time_threthold = 10000
+random_seed = 42
+forget_strategy = gradient_reversal
+fedcsa_forget_epochs = 5
+fedosd_lr = 0.01
+fedu_forget_epochs = 1
+fedu_lr = 0.001
+fedu_eps = 0.01
+fedu_alpha = 0.02
+load_saved_model = False
+saved_model_path = /home/siguangchen/zyj/FLCOPY copy/system/results/exp_configs/global_model_Cifar10_SCAFFOLD_test_1.pt
+debug_model_loading = False
+recovery_rounds = 5
+use_optimized_forgetting = True
+sample_ratio = 0.3
+max_batches = 8
+num_processes = 4
+target_client_id = 5
+retrain_only = True
+==================================================
+实验配置已保存到: results/exp_configs/exp_config_Cifar10_SCAFFOLD_test_1.json
+
+============= Running time: 0th =============
+Creating server and clients ...
+ResNet(
+  (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+  (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (relu): ReLU(inplace=True)
+  (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer2): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer3): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer4): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+  (fc): Linear(in_features=512, out_features=10, bias=True)
+)
+
+Join ratio / total clients: 1.0 / 10
+Finished creating server and clients.
+
+============= 仅执行重训练基线（排除目标客户端参与训练） =============
+
+============= 开始重训练（排除客户端 5） =============
+重训练轮数: 100
+已重置global_c和所有客户端的client_c（从头开始重训练）
+排除的客户端: [5]，选择的客户端: [8, 1, 6, 0, 9, 2, 4, 3, 7]
+
+-------------Retrain Round number: 0-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 2.3042
+Averaged Test Accuracy: 0.1188
+Averaged Test AUC: 0.5172
+Std Test Accuracy: 0.1224
+Std Test AUC: 0.1937
+------------------------- time cost ------------------------- 26.920376539230347
+排除的客户端: [5]，选择的客户端: [0, 1, 6, 3, 4, 8, 9, 7, 2]
+
+-------------Retrain Round number: 1-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.9618
+Averaged Test Accuracy: 0.3467
+Averaged Test AUC: 0.6945
+Std Test Accuracy: 0.1636
+Std Test AUC: 0.2405
+------------------------- time cost ------------------------- 25.48509120941162
+排除的客户端: [5]，选择的客户端: [9, 2, 0, 7, 8, 6, 3, 1, 4]
+
+-------------Retrain Round number: 2-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 2.2297
+Averaged Test Accuracy: 0.1939
+Averaged Test AUC: 0.5740
+Std Test Accuracy: 0.1377
+Std Test AUC: 0.2026
+------------------------- time cost ------------------------- 25.583237886428833
+排除的客户端: [5]，选择的客户端: [1, 8, 7, 2, 9, 0, 3, 4, 6]
+
+-------------Retrain Round number: 3-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 2.1794
+Averaged Test Accuracy: 0.1961
+Averaged Test AUC: 0.6052
+Std Test Accuracy: 0.1065
+Std Test AUC: 0.2277
+------------------------- time cost ------------------------- 25.45285415649414
+排除的客户端: [5]，选择的客户端: [1, 6, 4, 9, 0, 8, 7, 3, 2]
+
+-------------Retrain Round number: 4-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 2.1371
+Averaged Test Accuracy: 0.2083
+Averaged Test AUC: 0.6232
+Std Test Accuracy: 0.1358
+Std Test AUC: 0.2269
+------------------------- time cost ------------------------- 25.422501802444458
+排除的客户端: [5]，选择的客户端: [8, 2, 6, 9, 3, 1, 0, 4, 7]
+
+-------------Retrain Round number: 5-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 2.1151
+Averaged Test Accuracy: 0.2103
+Averaged Test AUC: 0.6361
+Std Test Accuracy: 0.1286
+Std Test AUC: 0.2223
+------------------------- time cost ------------------------- 25.427968502044678
+排除的客户端: [5]，选择的客户端: [0, 6, 2, 7, 3, 8, 4, 1, 9]
+
+-------------Retrain Round number: 6-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 2.0346
+Averaged Test Accuracy: 0.2357
+Averaged Test AUC: 0.6644
+Std Test Accuracy: 0.1307
+Std Test AUC: 0.2149
+------------------------- time cost ------------------------- 25.5583815574646
+排除的客户端: [5]，选择的客户端: [9, 6, 1, 8, 0, 2, 4, 3, 7]
+
+-------------Retrain Round number: 7-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 2.0272
+Averaged Test Accuracy: 0.2655
+Averaged Test AUC: 0.6700
+Std Test Accuracy: 0.1666
+Std Test AUC: 0.2322
+------------------------- time cost ------------------------- 25.47836947441101
+排除的客户端: [5]，选择的客户端: [2, 0, 4, 9, 8, 7, 6, 1, 3]
+
+-------------Retrain Round number: 8-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.9108
+Averaged Test Accuracy: 0.3299
+Averaged Test AUC: 0.7070
+Std Test Accuracy: 0.1767
+Std Test AUC: 0.2173
+------------------------- time cost ------------------------- 25.426434993743896
+排除的客户端: [5]，选择的客户端: [2, 0, 7, 4, 6, 8, 3, 9, 1]
+
+-------------Retrain Round number: 9-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.8584
+Averaged Test Accuracy: 0.3382
+Averaged Test AUC: 0.7269
+Std Test Accuracy: 0.1987
+Std Test AUC: 0.2154
+------------------------- time cost ------------------------- 25.424793243408203
+排除的客户端: [5]，选择的客户端: [2, 9, 4, 1, 0, 3, 7, 6, 8]
+
+-------------Retrain Round number: 10-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.8247
+Averaged Test Accuracy: 0.3711
+Averaged Test AUC: 0.7400
+Std Test Accuracy: 0.2013
+Std Test AUC: 0.2171
+------------------------- time cost ------------------------- 25.374912977218628
+排除的客户端: [5]，选择的客户端: [6, 2, 8, 3, 0, 9, 4, 7, 1]
+
+-------------Retrain Round number: 11-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.7028
+Averaged Test Accuracy: 0.4460
+Averaged Test AUC: 0.7718
+Std Test Accuracy: 0.2380
+Std Test AUC: 0.2200
+------------------------- time cost ------------------------- 24.49166750907898
+排除的客户端: [5]，选择的客户端: [1, 4, 2, 3, 6, 8, 7, 9, 0]
+
+-------------Retrain Round number: 12-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.7031
+Averaged Test Accuracy: 0.4331
+Averaged Test AUC: 0.7668
+Std Test Accuracy: 0.2426
+Std Test AUC: 0.2126
+------------------------- time cost ------------------------- 24.974281311035156
+排除的客户端: [5]，选择的客户端: [3, 1, 4, 6, 8, 7, 9, 0, 2]
+
+-------------Retrain Round number: 13-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.5615
+Averaged Test Accuracy: 0.5033
+Averaged Test AUC: 0.8047
+Std Test Accuracy: 0.2527
+Std Test AUC: 0.2032
+------------------------- time cost ------------------------- 25.007412910461426
+排除的客户端: [5]，选择的客户端: [2, 4, 8, 6, 9, 3, 0, 1, 7]
+
+-------------Retrain Round number: 14-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.4513
+Averaged Test Accuracy: 0.5621
+Averaged Test AUC: 0.8218
+Std Test Accuracy: 0.2964
+Std Test AUC: 0.2058
+------------------------- time cost ------------------------- 25.169416189193726
+排除的客户端: [5]，选择的客户端: [8, 0, 1, 3, 2, 4, 6, 9, 7]
+
+-------------Retrain Round number: 15-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.3774
+Averaged Test Accuracy: 0.5558
+Averaged Test AUC: 0.8393
+Std Test Accuracy: 0.2743
+Std Test AUC: 0.1906
+------------------------- time cost ------------------------- 25.429295539855957
+排除的客户端: [5]，选择的客户端: [6, 1, 3, 8, 7, 4, 9, 0, 2]
+
+-------------Retrain Round number: 16-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.2358
+Averaged Test Accuracy: 0.6121
+Averaged Test AUC: 0.8572
+Std Test Accuracy: 0.3041
+Std Test AUC: 0.1927
+------------------------- time cost ------------------------- 25.460268020629883
+排除的客户端: [5]，选择的客户端: [4, 1, 3, 8, 0, 2, 6, 9, 7]
+
+-------------Retrain Round number: 17-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 1.0914
+Averaged Test Accuracy: 0.6450
+Averaged Test AUC: 0.8784
+Std Test Accuracy: 0.2933
+Std Test AUC: 0.1860
+------------------------- time cost ------------------------- 25.447012662887573
+排除的客户端: [5]，选择的客户端: [9, 4, 1, 6, 3, 0, 8, 7, 2]
+
+-------------Retrain Round number: 18-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.9673
+Averaged Test Accuracy: 0.6624
+Averaged Test AUC: 0.8903
+Std Test Accuracy: 0.3072
+Std Test AUC: 0.1854
+------------------------- time cost ------------------------- 25.415266752243042
+排除的客户端: [5]，选择的客户端: [6, 1, 0, 3, 8, 2, 4, 9, 7]
+
+-------------Retrain Round number: 19-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.9032
+Averaged Test Accuracy: 0.6774
+Averaged Test AUC: 0.8980
+Std Test Accuracy: 0.2530
+Std Test AUC: 0.1760
+------------------------- time cost ------------------------- 25.512632608413696
+排除的客户端: [5]，选择的客户端: [9, 0, 4, 1, 3, 6, 8, 2, 7]
+
+-------------Retrain Round number: 20-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.8919
+Averaged Test Accuracy: 0.6584
+Averaged Test AUC: 0.9005
+Std Test Accuracy: 0.2885
+Std Test AUC: 0.1794
+------------------------- time cost ------------------------- 25.481738567352295
+排除的客户端: [5]，选择的客户端: [0, 2, 1, 8, 7, 3, 6, 4, 9]
+
+-------------Retrain Round number: 21-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.7806
+Averaged Test Accuracy: 0.6953
+Averaged Test AUC: 0.9070
+Std Test Accuracy: 0.2448
+Std Test AUC: 0.1874
+------------------------- time cost ------------------------- 25.472179174423218
+排除的客户端: [5]，选择的客户端: [1, 2, 8, 4, 9, 6, 0, 3, 7]
+
+-------------Retrain Round number: 22-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.7758
+Averaged Test Accuracy: 0.6996
+Averaged Test AUC: 0.9073
+Std Test Accuracy: 0.2507
+Std Test AUC: 0.1917
+------------------------- time cost ------------------------- 25.28286910057068
+排除的客户端: [5]，选择的客户端: [6, 8, 1, 7, 2, 0, 4, 3, 9]
+
+-------------Retrain Round number: 23-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.6657
+Averaged Test Accuracy: 0.7301
+Averaged Test AUC: 0.9134
+Std Test Accuracy: 0.2486
+Std Test AUC: 0.1951
+------------------------- time cost ------------------------- 24.857343673706055
+排除的客户端: [5]，选择的客户端: [3, 8, 7, 1, 2, 0, 4, 6, 9]
+
+-------------Retrain Round number: 24-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.6312
+Averaged Test Accuracy: 0.7477
+Averaged Test AUC: 0.9239
+Std Test Accuracy: 0.2580
+Std Test AUC: 0.1690
+------------------------- time cost ------------------------- 25.045284271240234
+排除的客户端: [5]，选择的客户端: [2, 9, 4, 1, 7, 3, 0, 8, 6]
+
+-------------Retrain Round number: 25-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.6222
+Averaged Test Accuracy: 0.7361
+Averaged Test AUC: 0.9228
+Std Test Accuracy: 0.2587
+Std Test AUC: 0.1749
+------------------------- time cost ------------------------- 25.512250661849976
+排除的客户端: [5]，选择的客户端: [7, 4, 8, 0, 2, 1, 6, 9, 3]
+
+-------------Retrain Round number: 26-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.6509
+Averaged Test Accuracy: 0.7296
+Averaged Test AUC: 0.9289
+Std Test Accuracy: 0.2483
+Std Test AUC: 0.1477
+------------------------- time cost ------------------------- 25.58469843864441
+排除的客户端: [5]，选择的客户端: [7, 6, 3, 4, 1, 9, 2, 0, 8]
+
+-------------Retrain Round number: 27-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.6044
+Averaged Test Accuracy: 0.7410
+Averaged Test AUC: 0.9354
+Std Test Accuracy: 0.2547
+Std Test AUC: 0.1384
+------------------------- time cost ------------------------- 25.624080657958984
+排除的客户端: [5]，选择的客户端: [9, 6, 3, 1, 2, 7, 0, 8, 4]
+
+-------------Retrain Round number: 28-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.6034
+Averaged Test Accuracy: 0.7409
+Averaged Test AUC: 0.9341
+Std Test Accuracy: 0.2559
+Std Test AUC: 0.1401
+------------------------- time cost ------------------------- 25.374324560165405
+排除的客户端: [5]，选择的客户端: [1, 0, 4, 9, 2, 3, 7, 8, 6]
+
+-------------Retrain Round number: 29-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.5931
+Averaged Test Accuracy: 0.7492
+Averaged Test AUC: 0.9368
+Std Test Accuracy: 0.2568
+Std Test AUC: 0.1178
+------------------------- time cost ------------------------- 25.296944856643677
+排除的客户端: [5]，选择的客户端: [2, 0, 9, 7, 1, 3, 4, 8, 6]
+
+-------------Retrain Round number: 30-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.5551
+Averaged Test Accuracy: 0.7518
+Averaged Test AUC: 0.9476
+Std Test Accuracy: 0.2551
+Std Test AUC: 0.0984
+------------------------- time cost ------------------------- 24.80204486846924
+排除的客户端: [5]，选择的客户端: [8, 1, 7, 6, 4, 2, 3, 9, 0]
+
+-------------Retrain Round number: 31-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.5323
+Averaged Test Accuracy: 0.7525
+Averaged Test AUC: 0.9542
+Std Test Accuracy: 0.2554
+Std Test AUC: 0.0814
+------------------------- time cost ------------------------- 24.905665159225464
+排除的客户端: [5]，选择的客户端: [0, 8, 6, 4, 3, 7, 9, 1, 2]
+
+-------------Retrain Round number: 32-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.5064
+Averaged Test Accuracy: 0.7595
+Averaged Test AUC: 0.9590
+Std Test Accuracy: 0.2599
+Std Test AUC: 0.0700
+------------------------- time cost ------------------------- 25.076750993728638
+排除的客户端: [5]，选择的客户端: [6, 3, 4, 2, 8, 1, 7, 0, 9]
+
+-------------Retrain Round number: 33-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.5622
+Averaged Test Accuracy: 0.7469
+Averaged Test AUC: 0.9539
+Std Test Accuracy: 0.2587
+Std Test AUC: 0.0727
+------------------------- time cost ------------------------- 25.01666784286499
+排除的客户端: [5]，选择的客户端: [0, 4, 3, 2, 9, 6, 8, 7, 1]
+
+-------------Retrain Round number: 34-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4730
+Averaged Test Accuracy: 0.7679
+Averaged Test AUC: 0.9570
+Std Test Accuracy: 0.2638
+Std Test AUC: 0.0749
+------------------------- time cost ------------------------- 25.06934690475464
+排除的客户端: [5]，选择的客户端: [7, 2, 4, 6, 1, 0, 8, 3, 9]
+
+-------------Retrain Round number: 35-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4359
+Averaged Test Accuracy: 0.7794
+Averaged Test AUC: 0.9631
+Std Test Accuracy: 0.2654
+Std Test AUC: 0.0649
+------------------------- time cost ------------------------- 25.081458568572998
+排除的客户端: [5]，选择的客户端: [8, 1, 3, 7, 6, 0, 2, 9, 4]
+
+-------------Retrain Round number: 36-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4473
+Averaged Test Accuracy: 0.7779
+Averaged Test AUC: 0.9596
+Std Test Accuracy: 0.2668
+Std Test AUC: 0.0758
+------------------------- time cost ------------------------- 24.995647430419922
+排除的客户端: [5]，选择的客户端: [4, 1, 7, 9, 8, 0, 6, 3, 2]
+
+-------------Retrain Round number: 37-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4532
+Averaged Test Accuracy: 0.7764
+Averaged Test AUC: 0.9620
+Std Test Accuracy: 0.2650
+Std Test AUC: 0.0629
+------------------------- time cost ------------------------- 25.048832416534424
+排除的客户端: [5]，选择的客户端: [4, 0, 1, 7, 2, 8, 9, 6, 3]
+
+-------------Retrain Round number: 38-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4500
+Averaged Test Accuracy: 0.7755
+Averaged Test AUC: 0.9622
+Std Test Accuracy: 0.2701
+Std Test AUC: 0.0654
+------------------------- time cost ------------------------- 25.00806999206543
+排除的客户端: [5]，选择的客户端: [9, 8, 3, 7, 6, 1, 4, 0, 2]
+
+-------------Retrain Round number: 39-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4518
+Averaged Test Accuracy: 0.7776
+Averaged Test AUC: 0.9605
+Std Test Accuracy: 0.2664
+Std Test AUC: 0.0633
+------------------------- time cost ------------------------- 24.96893835067749
+排除的客户端: [5]，选择的客户端: [2, 6, 4, 1, 7, 8, 0, 3, 9]
+
+-------------Retrain Round number: 40-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4541
+Averaged Test Accuracy: 0.7781
+Averaged Test AUC: 0.9593
+Std Test Accuracy: 0.2680
+Std Test AUC: 0.0717
+------------------------- time cost ------------------------- 24.68710207939148
+排除的客户端: [5]，选择的客户端: [6, 1, 4, 9, 0, 2, 7, 8, 3]
+
+-------------Retrain Round number: 41-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4180
+Averaged Test Accuracy: 0.7842
+Averaged Test AUC: 0.9629
+Std Test Accuracy: 0.2685
+Std Test AUC: 0.0730
+------------------------- time cost ------------------------- 24.768914699554443
+排除的客户端: [5]，选择的客户端: [0, 3, 1, 9, 4, 8, 7, 6, 2]
+
+-------------Retrain Round number: 42-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4200
+Averaged Test Accuracy: 0.7812
+Averaged Test AUC: 0.9651
+Std Test Accuracy: 0.2693
+Std Test AUC: 0.0639
+------------------------- time cost ------------------------- 24.824644565582275
+排除的客户端: [5]，选择的客户端: [9, 8, 7, 2, 3, 0, 6, 4, 1]
+
+-------------Retrain Round number: 43-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4004
+Averaged Test Accuracy: 0.7856
+Averaged Test AUC: 0.9653
+Std Test Accuracy: 0.2687
+Std Test AUC: 0.0605
+------------------------- time cost ------------------------- 25.13071846961975
+排除的客户端: [5]，选择的客户端: [7, 4, 1, 8, 6, 0, 9, 3, 2]
+
+-------------Retrain Round number: 44-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.4105
+Averaged Test Accuracy: 0.7853
+Averaged Test AUC: 0.9641
+Std Test Accuracy: 0.2686
+Std Test AUC: 0.0637
+------------------------- time cost ------------------------- 25.084391117095947
+排除的客户端: [5]，选择的客户端: [1, 7, 8, 9, 0, 3, 2, 6, 4]
+
+-------------Retrain Round number: 45-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3811
+Averaged Test Accuracy: 0.7943
+Averaged Test AUC: 0.9662
+Std Test Accuracy: 0.2707
+Std Test AUC: 0.0633
+------------------------- time cost ------------------------- 25.116032600402832
+排除的客户端: [5]，选择的客户端: [1, 9, 8, 6, 0, 3, 2, 7, 4]
+
+-------------Retrain Round number: 46-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3823
+Averaged Test Accuracy: 0.7933
+Averaged Test AUC: 0.9653
+Std Test Accuracy: 0.2699
+Std Test AUC: 0.0622
+------------------------- time cost ------------------------- 25.112417936325073
+排除的客户端: [5]，选择的客户端: [9, 6, 1, 3, 2, 0, 7, 8, 4]
+
+-------------Retrain Round number: 47-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3806
+Averaged Test Accuracy: 0.7899
+Averaged Test AUC: 0.9648
+Std Test Accuracy: 0.2688
+Std Test AUC: 0.0604
+------------------------- time cost ------------------------- 25.11535882949829
+排除的客户端: [5]，选择的客户端: [0, 4, 7, 3, 8, 9, 2, 1, 6]
+
+-------------Retrain Round number: 48-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3687
+Averaged Test Accuracy: 0.7875
+Averaged Test AUC: 0.9674
+Std Test Accuracy: 0.2669
+Std Test AUC: 0.0611
+------------------------- time cost ------------------------- 25.111413955688477
+排除的客户端: [5]，选择的客户端: [6, 0, 3, 4, 8, 2, 9, 1, 7]
+
+-------------Retrain Round number: 49-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3615
+Averaged Test Accuracy: 0.7925
+Averaged Test AUC: 0.9686
+Std Test Accuracy: 0.2702
+Std Test AUC: 0.0538
+------------------------- time cost ------------------------- 25.11427402496338
+排除的客户端: [5]，选择的客户端: [7, 3, 6, 1, 4, 2, 9, 0, 8]
+
+-------------Retrain Round number: 50-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3477
+Averaged Test Accuracy: 0.7952
+Averaged Test AUC: 0.9699
+Std Test Accuracy: 0.2701
+Std Test AUC: 0.0575
+------------------------- time cost ------------------------- 25.097869873046875
+排除的客户端: [5]，选择的客户端: [6, 7, 9, 8, 3, 4, 0, 1, 2]
+
+-------------Retrain Round number: 51-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3487
+Averaged Test Accuracy: 0.7943
+Averaged Test AUC: 0.9677
+Std Test Accuracy: 0.2702
+Std Test AUC: 0.0600
+------------------------- time cost ------------------------- 24.992010354995728
+排除的客户端: [5]，选择的客户端: [1, 6, 8, 2, 7, 0, 9, 4, 3]
+
+-------------Retrain Round number: 52-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3371
+Averaged Test Accuracy: 0.7972
+Averaged Test AUC: 0.9696
+Std Test Accuracy: 0.2706
+Std Test AUC: 0.0539
+------------------------- time cost ------------------------- 24.789838790893555
+排除的客户端: [5]，选择的客户端: [4, 3, 8, 0, 2, 6, 7, 9, 1]
+
+-------------Retrain Round number: 53-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3452
+Averaged Test Accuracy: 0.7953
+Averaged Test AUC: 0.9680
+Std Test Accuracy: 0.2718
+Std Test AUC: 0.0595
+------------------------- time cost ------------------------- 24.797322034835815
+排除的客户端: [5]，选择的客户端: [4, 2, 7, 3, 0, 9, 8, 1, 6]
+
+-------------Retrain Round number: 54-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3529
+Averaged Test Accuracy: 0.7924
+Averaged Test AUC: 0.9684
+Std Test Accuracy: 0.2711
+Std Test AUC: 0.0603
+------------------------- time cost ------------------------- 24.790101528167725
+排除的客户端: [5]，选择的客户端: [8, 1, 9, 7, 0, 4, 3, 2, 6]
+
+-------------Retrain Round number: 55-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3438
+Averaged Test Accuracy: 0.7934
+Averaged Test AUC: 0.9698
+Std Test Accuracy: 0.2705
+Std Test AUC: 0.0536
+------------------------- time cost ------------------------- 24.749154090881348
+排除的客户端: [5]，选择的客户端: [2, 0, 1, 8, 9, 6, 3, 7, 4]
+
+-------------Retrain Round number: 56-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3103
+Averaged Test Accuracy: 0.8021
+Averaged Test AUC: 0.9727
+Std Test Accuracy: 0.2724
+Std Test AUC: 0.0505
+------------------------- time cost ------------------------- 24.831828117370605
+排除的客户端: [5]，选择的客户端: [0, 9, 6, 8, 1, 4, 3, 7, 2]
+
+-------------Retrain Round number: 57-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3189
+Averaged Test Accuracy: 0.7942
+Averaged Test AUC: 0.9723
+Std Test Accuracy: 0.2702
+Std Test AUC: 0.0515
+------------------------- time cost ------------------------- 24.791898012161255
+排除的客户端: [5]，选择的客户端: [8, 4, 6, 1, 3, 9, 7, 0, 2]
+
+-------------Retrain Round number: 58-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3192
+Averaged Test Accuracy: 0.8007
+Averaged Test AUC: 0.9703
+Std Test Accuracy: 0.2719
+Std Test AUC: 0.0579
+------------------------- time cost ------------------------- 24.894936561584473
+排除的客户端: [5]，选择的客户端: [8, 2, 7, 3, 0, 6, 9, 1, 4]
+
+-------------Retrain Round number: 59-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3143
+Averaged Test Accuracy: 0.8007
+Averaged Test AUC: 0.9709
+Std Test Accuracy: 0.2722
+Std Test AUC: 0.0578
+------------------------- time cost ------------------------- 25.16202664375305
+排除的客户端: [5]，选择的客户端: [8, 2, 4, 3, 9, 6, 1, 7, 0]
+
+-------------Retrain Round number: 60-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3313
+Averaged Test Accuracy: 0.7962
+Averaged Test AUC: 0.9681
+Std Test Accuracy: 0.2712
+Std Test AUC: 0.0591
+------------------------- time cost ------------------------- 25.080509185791016
+排除的客户端: [5]，选择的客户端: [9, 1, 3, 2, 6, 7, 4, 8, 0]
+
+-------------Retrain Round number: 61-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3214
+Averaged Test Accuracy: 0.8005
+Averaged Test AUC: 0.9688
+Std Test Accuracy: 0.2716
+Std Test AUC: 0.0604
+------------------------- time cost ------------------------- 25.148167371749878
+排除的客户端: [5]，选择的客户端: [3, 9, 7, 1, 8, 0, 6, 4, 2]
+
+-------------Retrain Round number: 62-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3223
+Averaged Test Accuracy: 0.7943
+Averaged Test AUC: 0.9657
+Std Test Accuracy: 0.2708
+Std Test AUC: 0.0714
+------------------------- time cost ------------------------- 25.1103994846344
+排除的客户端: [5]，选择的客户端: [4, 2, 1, 9, 3, 7, 8, 6, 0]
+
+-------------Retrain Round number: 63-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3261
+Averaged Test Accuracy: 0.7967
+Averaged Test AUC: 0.9674
+Std Test Accuracy: 0.2700
+Std Test AUC: 0.0624
+------------------------- time cost ------------------------- 25.13786792755127
+排除的客户端: [5]，选择的客户端: [6, 8, 1, 2, 9, 0, 3, 7, 4]
+
+-------------Retrain Round number: 64-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3196
+Averaged Test Accuracy: 0.8013
+Averaged Test AUC: 0.9697
+Std Test Accuracy: 0.2723
+Std Test AUC: 0.0592
+------------------------- time cost ------------------------- 25.097537517547607
+排除的客户端: [5]，选择的客户端: [0, 8, 9, 2, 7, 1, 3, 4, 6]
+
+-------------Retrain Round number: 65-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3248
+Averaged Test Accuracy: 0.7966
+Averaged Test AUC: 0.9645
+Std Test Accuracy: 0.2688
+Std Test AUC: 0.0709
+------------------------- time cost ------------------------- 25.151885509490967
+排除的客户端: [5]，选择的客户端: [7, 8, 9, 3, 6, 4, 0, 1, 2]
+
+-------------Retrain Round number: 66-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3164
+Averaged Test Accuracy: 0.7966
+Averaged Test AUC: 0.9626
+Std Test Accuracy: 0.2709
+Std Test AUC: 0.0785
+------------------------- time cost ------------------------- 25.032719612121582
+排除的客户端: [5]，选择的客户端: [9, 4, 7, 1, 6, 8, 2, 3, 0]
+
+-------------Retrain Round number: 67-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2948
+Averaged Test Accuracy: 0.8023
+Averaged Test AUC: 0.9707
+Std Test Accuracy: 0.2725
+Std Test AUC: 0.0561
+------------------------- time cost ------------------------- 24.78720736503601
+排除的客户端: [5]，选择的客户端: [1, 3, 7, 8, 6, 2, 4, 9, 0]
+
+-------------Retrain Round number: 68-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.3110
+Averaged Test Accuracy: 0.7984
+Averaged Test AUC: 0.9666
+Std Test Accuracy: 0.2731
+Std Test AUC: 0.0682
+------------------------- time cost ------------------------- 24.744896173477173
+排除的客户端: [5]，选择的客户端: [6, 7, 4, 9, 3, 2, 1, 8, 0]
+
+-------------Retrain Round number: 69-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2925
+Averaged Test Accuracy: 0.7991
+Averaged Test AUC: 0.9700
+Std Test Accuracy: 0.2706
+Std Test AUC: 0.0589
+------------------------- time cost ------------------------- 24.74229335784912
+排除的客户端: [5]，选择的客户端: [3, 6, 0, 8, 7, 9, 2, 4, 1]
+
+-------------Retrain Round number: 70-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2925
+Averaged Test Accuracy: 0.7990
+Averaged Test AUC: 0.9687
+Std Test Accuracy: 0.2710
+Std Test AUC: 0.0602
+------------------------- time cost ------------------------- 24.711159229278564
+排除的客户端: [5]，选择的客户端: [2, 0, 3, 9, 6, 7, 1, 4, 8]
+
+-------------Retrain Round number: 71-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2945
+Averaged Test Accuracy: 0.7918
+Averaged Test AUC: 0.9722
+Std Test Accuracy: 0.2679
+Std Test AUC: 0.0516
+------------------------- time cost ------------------------- 24.75159740447998
+排除的客户端: [5]，选择的客户端: [8, 2, 0, 6, 4, 1, 3, 7, 9]
+
+-------------Retrain Round number: 72-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2797
+Averaged Test Accuracy: 0.8047
+Averaged Test AUC: 0.9721
+Std Test Accuracy: 0.2731
+Std Test AUC: 0.0538
+------------------------- time cost ------------------------- 24.847758531570435
+排除的客户端: [5]，选择的客户端: [2, 9, 1, 7, 6, 4, 0, 3, 8]
+
+-------------Retrain Round number: 73-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2849
+Averaged Test Accuracy: 0.7925
+Averaged Test AUC: 0.9716
+Std Test Accuracy: 0.2703
+Std Test AUC: 0.0507
+------------------------- time cost ------------------------- 25.117644786834717
+排除的客户端: [5]，选择的客户端: [4, 6, 1, 3, 7, 0, 2, 8, 9]
+
+-------------Retrain Round number: 74-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2788
+Averaged Test Accuracy: 0.8038
+Averaged Test AUC: 0.9699
+Std Test Accuracy: 0.2728
+Std Test AUC: 0.0590
+------------------------- time cost ------------------------- 25.136397123336792
+排除的客户端: [5]，选择的客户端: [1, 2, 0, 3, 4, 6, 9, 8, 7]
+
+-------------Retrain Round number: 75-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2777
+Averaged Test Accuracy: 0.8076
+Averaged Test AUC: 0.9704
+Std Test Accuracy: 0.2736
+Std Test AUC: 0.0601
+------------------------- time cost ------------------------- 25.09832453727722
+排除的客户端: [5]，选择的客户端: [3, 9, 1, 4, 6, 8, 2, 0, 7]
+
+-------------Retrain Round number: 76-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2931
+Averaged Test Accuracy: 0.7935
+Averaged Test AUC: 0.9668
+Std Test Accuracy: 0.2711
+Std Test AUC: 0.0636
+------------------------- time cost ------------------------- 25.12772536277771
+排除的客户端: [5]，选择的客户端: [1, 7, 3, 0, 8, 2, 4, 6, 9]
+
+-------------Retrain Round number: 77-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2796
+Averaged Test Accuracy: 0.8014
+Averaged Test AUC: 0.9691
+Std Test Accuracy: 0.2717
+Std Test AUC: 0.0630
+------------------------- time cost ------------------------- 25.09234309196472
+排除的客户端: [5]，选择的客户端: [4, 7, 1, 9, 6, 8, 0, 3, 2]
+
+-------------Retrain Round number: 78-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2786
+Averaged Test Accuracy: 0.8028
+Averaged Test AUC: 0.9696
+Std Test Accuracy: 0.2730
+Std Test AUC: 0.0616
+------------------------- time cost ------------------------- 25.136582374572754
+排除的客户端: [5]，选择的客户端: [1, 8, 7, 6, 0, 3, 2, 9, 4]
+
+-------------Retrain Round number: 79-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2827
+Averaged Test Accuracy: 0.8018
+Averaged Test AUC: 0.9614
+Std Test Accuracy: 0.2721
+Std Test AUC: 0.0883
+------------------------- time cost ------------------------- 25.089136600494385
+排除的客户端: [5]，选择的客户端: [9, 2, 1, 6, 8, 0, 7, 4, 3]
+
+-------------Retrain Round number: 80-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2833
+Averaged Test Accuracy: 0.8005
+Averaged Test AUC: 0.9609
+Std Test Accuracy: 0.2729
+Std Test AUC: 0.0862
+------------------------- time cost ------------------------- 25.25884199142456
+排除的客户端: [5]，选择的客户端: [8, 0, 3, 2, 4, 1, 9, 6, 7]
+
+-------------Retrain Round number: 81-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2752
+Averaged Test Accuracy: 0.8031
+Averaged Test AUC: 0.9646
+Std Test Accuracy: 0.2733
+Std Test AUC: 0.0770
+------------------------- time cost ------------------------- 25.233237266540527
+排除的客户端: [5]，选择的客户端: [8, 2, 6, 4, 9, 0, 3, 7, 1]
+
+-------------Retrain Round number: 82-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2783
+Averaged Test Accuracy: 0.7929
+Averaged Test AUC: 0.9686
+Std Test Accuracy: 0.2704
+Std Test AUC: 0.0576
+------------------------- time cost ------------------------- 25.28741717338562
+排除的客户端: [5]，选择的客户端: [2, 3, 8, 0, 1, 4, 9, 7, 6]
+
+-------------Retrain Round number: 83-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2721
+Averaged Test Accuracy: 0.8077
+Averaged Test AUC: 0.9656
+Std Test Accuracy: 0.2736
+Std Test AUC: 0.0677
+------------------------- time cost ------------------------- 25.23675799369812
+排除的客户端: [5]，选择的客户端: [9, 6, 0, 3, 2, 7, 8, 4, 1]
+
+-------------Retrain Round number: 84-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2721
+Averaged Test Accuracy: 0.7985
+Averaged Test AUC: 0.9672
+Std Test Accuracy: 0.2715
+Std Test AUC: 0.0700
+------------------------- time cost ------------------------- 25.217945098876953
+排除的客户端: [5]，选择的客户端: [9, 2, 1, 8, 4, 7, 0, 3, 6]
+
+-------------Retrain Round number: 85-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2721
+Averaged Test Accuracy: 0.8051
+Averaged Test AUC: 0.9616
+Std Test Accuracy: 0.2729
+Std Test AUC: 0.0846
+------------------------- time cost ------------------------- 25.19625234603882
+排除的客户端: [5]，选择的客户端: [8, 0, 7, 1, 9, 6, 3, 4, 2]
+
+-------------Retrain Round number: 86-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2632
+Averaged Test Accuracy: 0.8045
+Averaged Test AUC: 0.9669
+Std Test Accuracy: 0.2731
+Std Test AUC: 0.0696
+------------------------- time cost ------------------------- 25.13601541519165
+排除的客户端: [5]，选择的客户端: [0, 9, 3, 1, 8, 4, 2, 6, 7]
+
+-------------Retrain Round number: 87-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2637
+Averaged Test Accuracy: 0.8089
+Averaged Test AUC: 0.9665
+Std Test Accuracy: 0.2743
+Std Test AUC: 0.0706
+------------------------- time cost ------------------------- 25.217554569244385
+排除的客户端: [5]，选择的客户端: [8, 1, 7, 2, 6, 0, 4, 9, 3]
+
+-------------Retrain Round number: 88-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2499
+Averaged Test Accuracy: 0.8073
+Averaged Test AUC: 0.9685
+Std Test Accuracy: 0.2735
+Std Test AUC: 0.0669
+------------------------- time cost ------------------------- 25.125030517578125
+排除的客户端: [5]，选择的客户端: [2, 1, 4, 8, 6, 0, 3, 7, 9]
+
+-------------Retrain Round number: 89-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2674
+Averaged Test Accuracy: 0.7965
+Averaged Test AUC: 0.9612
+Std Test Accuracy: 0.2703
+Std Test AUC: 0.0829
+------------------------- time cost ------------------------- 25.104655027389526
+排除的客户端: [5]，选择的客户端: [7, 2, 0, 8, 9, 3, 1, 6, 4]
+
+-------------Retrain Round number: 90-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2597
+Averaged Test Accuracy: 0.7966
+Averaged Test AUC: 0.9687
+Std Test Accuracy: 0.2708
+Std Test AUC: 0.0554
+------------------------- time cost ------------------------- 25.11934518814087
+排除的客户端: [5]，选择的客户端: [7, 1, 0, 3, 2, 9, 6, 8, 4]
+
+-------------Retrain Round number: 91-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2698
+Averaged Test Accuracy: 0.7956
+Averaged Test AUC: 0.9649
+Std Test Accuracy: 0.2700
+Std Test AUC: 0.0605
+------------------------- time cost ------------------------- 25.146401166915894
+排除的客户端: [5]，选择的客户端: [4, 7, 6, 8, 1, 0, 3, 9, 2]
+
+-------------Retrain Round number: 92-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2776
+Averaged Test Accuracy: 0.7950
+Averaged Test AUC: 0.9631
+Std Test Accuracy: 0.2705
+Std Test AUC: 0.0738
+------------------------- time cost ------------------------- 24.978031158447266
+排除的客户端: [5]，选择的客户端: [1, 9, 8, 3, 2, 7, 6, 4, 0]
+
+-------------Retrain Round number: 93-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2523
+Averaged Test Accuracy: 0.8033
+Averaged Test AUC: 0.9683
+Std Test Accuracy: 0.2735
+Std Test AUC: 0.0610
+------------------------- time cost ------------------------- 24.856377840042114
+排除的客户端: [5]，选择的客户端: [0, 2, 1, 9, 4, 7, 3, 6, 8]
+
+-------------Retrain Round number: 94-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2714
+Averaged Test Accuracy: 0.7965
+Averaged Test AUC: 0.9614
+Std Test Accuracy: 0.2729
+Std Test AUC: 0.0821
+------------------------- time cost ------------------------- 24.951518535614014
+排除的客户端: [5]，选择的客户端: [4, 2, 0, 6, 7, 9, 8, 1, 3]
+
+-------------Retrain Round number: 95-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2552
+Averaged Test Accuracy: 0.8057
+Averaged Test AUC: 0.9637
+Std Test Accuracy: 0.2728
+Std Test AUC: 0.0788
+------------------------- time cost ------------------------- 25.028924226760864
+排除的客户端: [5]，选择的客户端: [1, 7, 9, 4, 0, 6, 2, 8, 3]
+
+-------------Retrain Round number: 96-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2571
+Averaged Test Accuracy: 0.8010
+Averaged Test AUC: 0.9653
+Std Test Accuracy: 0.2709
+Std Test AUC: 0.0685
+------------------------- time cost ------------------------- 24.957913160324097
+排除的客户端: [5]，选择的客户端: [7, 0, 2, 1, 6, 8, 9, 4, 3]
+
+-------------Retrain Round number: 97-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2719
+Averaged Test Accuracy: 0.7957
+Averaged Test AUC: 0.9638
+Std Test Accuracy: 0.2689
+Std Test AUC: 0.0693
+------------------------- time cost ------------------------- 24.881658792495728
+排除的客户端: [5]，选择的客户端: [9, 7, 3, 8, 0, 4, 2, 1, 6]
+
+-------------Retrain Round number: 98-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2624
+Averaged Test Accuracy: 0.8033
+Averaged Test AUC: 0.9635
+Std Test Accuracy: 0.2726
+Std Test AUC: 0.0766
+------------------------- time cost ------------------------- 24.936500787734985
+排除的客户端: [5]，选择的客户端: [8, 3, 6, 9, 0, 7, 4, 2, 1]
+
+-------------Retrain Round number: 99-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2587
+Averaged Test Accuracy: 0.8074
+Averaged Test AUC: 0.9627
+Std Test Accuracy: 0.2730
+Std Test AUC: 0.0751
+------------------------- time cost ------------------------- 24.984977960586548
+排除的客户端: [5]，选择的客户端: [3, 7, 8, 6, 9, 1, 4, 2, 0]
+
+-------------Retrain Round number: 100-------------
+
+Evaluate global model (retrain)
+Averaged Train Loss: 0.2592
+Averaged Test Accuracy: 0.8070
+Averaged Test AUC: 0.9635
+Std Test Accuracy: 0.2732
+Std Test AUC: 0.0741
+------------------------- time cost ------------------------- 24.76952600479126
+
+重训练完成。最佳准确率:
+0.8089333333333333
+
+============= 重训练后评估（所有客户端） =============
+
+============= 重训练后评估 =============
+客户端0 - 准确率: 0.9120, AUC: 0.9955, 测试样本数: 1500
+客户端1 - 准确率: 0.9233, AUC: 0.9878, 测试样本数: 1500
+客户端2 - 准确率: 0.8373, AUC: 0.9839, 测试样本数: 1500
+客户端3 - 准确率: 0.8013, AUC: 0.9803, 测试样本数: 1500
+客户端4 - 准确率: 0.8280, AUC: 0.9777, 测试样本数: 1500
+提示：客户端5使用测试集评估，测试样本数=1500，但准确率为0（可能模型完全预测错误）
+  调试：检查客户端5的预测分布...
+  客户端5前100个样本 - 真实标签分布: {4: 67, 5: 61}
+  客户端5前100个样本 - 预测标签分布: {9: 128}
+  标签4的样本数: 67
+  标签4样本的平均logits (前5个): [-0.32140985  0.242787    0.25479114  0.18259181  0.44512486]
+  标签4样本的平均logits (后5个): [ 0.5094643  -2.714638    0.23209128 -2.096895    1.4078354 ]
+  标签4样本的预测类别分布: {9: 67}
+  标签5的样本数: 61
+  标签5样本的平均logits (前5个): [-0.43783435  0.4457045   0.3822197   0.22943035  0.43594128]
+  标签5样本的平均logits (后5个): [ 0.60978097 -3.4822724   0.37177995 -2.82591     1.9305755 ]
+  标签5样本的预测类别分布: {9: 61}
+  检查模型参数设置...
+  模型输出层形状: torch.Size([10])
+  模型是否在eval模式: True
+客户端5 - 准确率: 0.0000, AUC: 0.7290, 测试样本数: 1500
+客户端6 - 准确率: 0.9547, AUC: 0.9962, 测试样本数: 1500
+客户端7 - 准确率: 0.9427, AUC: 0.9927, 测试样本数: 1500
+客户端8 - 准确率: 0.9207, AUC: 0.9924, 测试样本数: 1500
+客户端9 - 准确率: 0.9047, AUC: 0.9887, 测试样本数: 1500
+
+平均准确率: 0.8025 ± 0.2720
+平均AUC: 0.9624 ± 0.0780
+评估结果已保存到: results/exp_configs/eval_retrain_only_Cifar10_SCAFFOLD_test_1.json
+
+============= 重训练后攻击评估（目标客户端） =============
+[重训练后MIA] AUC: 0.4970, 最佳准确率: 0.5114, 最佳阈值: 0.20
+[重训练后后门攻击] 后门样本准确率: 0.0000
+重训练后模型已保存到: results/exp_configs/retrain_model_Cifar10_SCAFFOLD_test_1.pt

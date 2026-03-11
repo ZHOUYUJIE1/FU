@@ -1,0 +1,59 @@
+# OS and editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# Logs and local runtime output
+*.log
+*.out
+*.err
+
+# Large experiment artifacts
+models/
+results/
+test_results/
+system/models/
+system/results/
+
+# Ignore dataset payloads but keep dataset generation code
+dataset/**
+!dataset/
+!dataset/**/
+!dataset/**/*.py
+!dataset/**/*.md
+!dataset/**/README*
+!dataset/**/.gitkeep
+
+# Embedded dataset cache inside upstream code
+FedU-main/data/
+FedU-main/Experiment_results/
+FedU-main/IBFU_Experiment_results/
+
+# Generated analysis snapshots
+clustering_analysis_*.json
+system/clustering_analysis_*.json
+
+# Common model and archive formats
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.h5
+*.npy
+*.npz
+*.tar
+*.tar.gz
+*.zip
+*.gz

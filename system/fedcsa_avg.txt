@@ -1,0 +1,364 @@
+==================================================
+goal = test
+device = cuda
+device_id = 0
+dataset = Cifar10
+num_classes = 10
+model = ResNet18
+batch_size = 32
+local_learning_rate = 0.005
+learning_rate_decay = False
+learning_rate_decay_gamma = 0.99
+global_rounds = 100
+top_cnt = 100
+local_epochs = 1
+algorithm = FedAvg
+server_learning_rate = 1.0
+join_ratio = 1.0
+random_join_ratio = False
+num_clients = 10
+prev = 0
+times = 1
+eval_gap = 1
+save_folder_name = items
+auto_break = False
+dlg_eval = False
+dlg_gap = 100
+batch_num_per_client = 2
+num_new_clients = 0
+fine_tuning_epoch_new = 0
+feature_dim = 512
+vocab_size = 80
+max_len = 200
+few_shot = 0
+client_drop_rate = 0.0
+train_slow_rate = 0.0
+send_slow_rate = 0.0
+time_select = False
+time_threthold = 10000
+random_seed = 42
+result_tag = 
+forget_strategy = fedcsa
+fedcsa_forget_epochs = 5
+fedcsa_probe_epochs = 1
+fedcsa_probe_batches = 4
+fedcsa_slice_rounds = 3
+fedcsa_slice_local_epochs = 1
+fedcsa_slice_batches = 0
+fedcsa_compare_min_clusters = 2
+fedcsa_compare_max_clusters = 5
+fedcsa_cache_enabled = True
+fedcsa_force_rebuild = False
+fedcsa_compare_use_scaffold = True
+fedosd_lr = 0.0004
+fedosd_use_legacy = False
+fedosd_unlearn_rounds = 20
+fedosd_recovery_rounds = 1
+fedosd_recovery_lr = 1e-06
+fedosd_force_target_online = True
+fedu_forget_epochs = 1
+fedu_lr = 0.003
+fedu_eps = 0.005
+fedu_alpha = 0.02
+fedu_erased_ratio = 0.35
+fedu_erased_max_samples = 1200
+fedu_split_seed = 42
+fedu_forget_rounds = 12
+fedu_local_steps = 6
+fedu_hutchinson_samples = 8
+fedu_utility_scale = 0.35
+load_saved_model = True
+saved_model_path = /home/siguangchen/zyj/FUcopy/system/results/exp_configs/global_model_Cifar10_FedAvg_test_1.pt
+debug_model_loading = False
+recovery_rounds = 5
+use_optimized_forgetting = True
+sample_ratio = 0.3
+max_batches = 8
+num_processes = 4
+fu_retain_calibration_rounds = 2
+fu_retain_calibration_lr = 0.0004
+fu_retain_calibration_batches = 3
+fu_mask_retain_scale = 0.12
+fu_similarity_boost = 1.2
+protection_level = weak
+target_client_id = 5
+retrain_only = False
+==================================================
+实验配置已保存到: results/exp_configs/exp_config_Cifar10_FedAvg_test_1.json
+
+============= Running time: 0th =============
+Creating server and clients ...
+从已保存的模型文件加载: /home/siguangchen/zyj/FUcopy/system/results/exp_configs/global_model_Cifar10_FedAvg_test_1.pt
+ResNet(
+  (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+  (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (relu): ReLU(inplace=True)
+  (maxpool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer2): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer3): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (layer4): Sequential(
+    (0): BasicBlock(
+      (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (downsample): Sequential(
+        (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BasicBlock(
+      (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
+  (fc): Linear(in_features=512, out_features=10, bias=True)
+)
+
+Join ratio / total clients: 1.0 / 10
+Finished creating server and clients.
+模型参数已通过state_dict加载完毕！
+注意：这是旧格式的模型文件，不包含额外checkpoint元信息。
+已为 10 个客户端恢复本地buffer状态（来源: /home/siguangchen/zyj/FUcopy/system/results/exp_configs/global_model_Cifar10_FedAvg_test_1_client_buffers.pt）。
+跳过训练阶段，直接进行遗忘...
+
+============= 遗忘前评估 =============
+
+============= 遗忘前评估 =============
+客户端0 - 准确率: 0.7220, AUC: 0.9273, 测试样本数: 1500
+客户端1 - 准确率: 0.7380, AUC: 0.9306, 测试样本数: 1500
+客户端2 - 准确率: 0.3527, AUC: 0.7854, 测试样本数: 1500
+客户端3 - 准确率: 0.3800, AUC: 0.7828, 测试样本数: 1500
+客户端4 - 准确率: 0.5080, AUC: 0.8293, 测试样本数: 1500
+客户端5 - 准确率: 0.4540, AUC: 0.8171, 测试样本数: 1500
+客户端6 - 准确率: 0.8100, AUC: 0.9531, 测试样本数: 1500
+客户端7 - 准确率: 0.8260, AUC: 0.9639, 测试样本数: 1500
+客户端8 - 准确率: 0.6380, AUC: 0.8957, 测试样本数: 1500
+客户端9 - 准确率: 0.6693, AUC: 0.9123, 测试样本数: 1500
+
+平均准确率: 0.6098 ± 0.1655
+平均AUC: 0.8797 ± 0.0659
+评估结果已保存到: results/exp_configs/eval_pre_forget_Cifar10_FedAvg_test_1.json
+
+============= 遗忘前攻击评估 =============
+[遗忘前MIA] AUC: 0.5791, 最佳准确率: 0.5696, 最佳阈值: 0.47
+[遗忘前后门攻击] 后门样本准确率: 0.3021
+
+============= 开始遗忘阶段 =============
+目标遗忘客户端: 5
+
+============= FedCSA 遗忘方法 =============
+目标遗忘客户端: 5
+步骤1: 自适应分为 2 个子集...
+客户端分组完成: 3 个子集
+  子集 1: 客户端 [0, 1]
+  子集 0: 客户端 [2, 3, 4, 6, 7, 8, 9]
+  子集 2: 客户端 [5]
+步骤2: 排除目标客户端所在的子集 2
+FedCSA遗忘训练轮次: 1/5
+  训练子集 1 (包含客户端 [0, 1])...
+  训练子集 0 (包含客户端 [2, 3, 4, 6, 7, 8, 9])...
+  聚合 2 个子集的模型...
+FedCSA遗忘训练轮次: 2/5
+  训练子集 1 (包含客户端 [0, 1])...
+  训练子集 0 (包含客户端 [2, 3, 4, 6, 7, 8, 9])...
+  聚合 2 个子集的模型...
+FedCSA遗忘训练轮次: 3/5
+  训练子集 1 (包含客户端 [0, 1])...
+  训练子集 0 (包含客户端 [2, 3, 4, 6, 7, 8, 9])...
+  聚合 2 个子集的模型...
+FedCSA遗忘训练轮次: 4/5
+  训练子集 1 (包含客户端 [0, 1])...
+  训练子集 0 (包含客户端 [2, 3, 4, 6, 7, 8, 9])...
+  聚合 2 个子集的模型...
+FedCSA遗忘训练轮次: 5/5
+  训练子集 1 (包含客户端 [0, 1])...
+  训练子集 0 (包含客户端 [2, 3, 4, 6, 7, 8, 9])...
+  聚合 2 个子集的模型...
+FedCSA遗忘完成
+遗忘后模型已保存到: results/exp_configs/forget_model_Cifar10_FedAvg_test_1.pt
+
+============= 遗忘后评估 =============
+
+============= 遗忘后评估 =============
+客户端0 - 准确率: 0.7327, AUC: 0.9377, 测试样本数: 1500
+客户端1 - 准确率: 0.7627, AUC: 0.9463, 测试样本数: 1500
+客户端2 - 准确率: 0.4620, AUC: 0.8157, 测试样本数: 1500
+客户端3 - 准确率: 0.4633, AUC: 0.8221, 测试样本数: 1500
+客户端4 - 准确率: 0.2753, AUC: 0.7540, 测试样本数: 1500
+客户端5 - 准确率: 0.2440, AUC: 0.7324, 测试样本数: 1500
+客户端6 - 准确率: 0.8487, AUC: 0.9662, 测试样本数: 1500
+客户端7 - 准确率: 0.8193, AUC: 0.9567, 测试样本数: 1500
+客户端8 - 准确率: 0.6440, AUC: 0.8849, 测试样本数: 1500
+客户端9 - 准确率: 0.6747, AUC: 0.9103, 测试样本数: 1500
+
+平均准确率: 0.5927 ± 0.2076
+平均AUC: 0.8726 ± 0.0816
+评估结果已保存到: results/exp_configs/eval_post_forget_Cifar10_FedAvg_test_1.json
+
+============= 遗忘效果分析 =============
+目标客户端(5) 遗忘前: 0.4540 遗忘后: 0.2440
+目标客户端(5) 变化量: -0.2100 (相对 -46.26%)
+其他客户端 平均变化量: 0.0043 (相对 1.96%)
+
+============= 开始恢复阶段 =============
+其他客户端性能变化: 1.96%
+恢复训练轮数: 5
+
+============= 开始恢复阶段训练 =============
+排除目标客户端: 5
+恢复训练轮数: 5
+恢复阶段将进行 5 轮训练
+参与训练的客户端: [0, 1, 2, 3, 4, 6, 7, 8, 9]
+排除的客户端: [5]，选择的客户端: [8, 1, 6, 0, 9, 2, 4, 3, 7]
+
+--- 恢复阶段第 1 轮 ---
+选中的客户端: [8, 1, 6, 0, 9, 2, 4, 3, 7]
+
+评估恢复阶段第 1 轮模型
+Averaged Train Loss: 0.1543
+Averaged Test Accuracy: 0.8225
+Averaged Test AUC: 0.9563
+Std Test Accuracy: 0.2012
+Std Test AUC: 0.0753
+恢复阶段第 1 轮时间成本: 23.87s
+排除的客户端: [5]，选择的客户端: [0, 1, 6, 3, 4, 8, 9, 7, 2]
+
+--- 恢复阶段第 2 轮 ---
+选中的客户端: [0, 1, 6, 3, 4, 8, 9, 7, 2]
+
+评估恢复阶段第 2 轮模型
+Averaged Train Loss: 0.1535
+Averaged Test Accuracy: 0.8253
+Averaged Test AUC: 0.9559
+Std Test Accuracy: 0.2012
+Std Test AUC: 0.0747
+恢复阶段第 2 轮时间成本: 24.25s
+排除的客户端: [5]，选择的客户端: [9, 2, 0, 7, 8, 6, 3, 1, 4]
+
+--- 恢复阶段第 3 轮 ---
+选中的客户端: [9, 2, 0, 7, 8, 6, 3, 1, 4]
+
+评估恢复阶段第 3 轮模型
+Averaged Train Loss: 0.1547
+Averaged Test Accuracy: 0.8209
+Averaged Test AUC: 0.9563
+Std Test Accuracy: 0.1967
+Std Test AUC: 0.0728
+恢复阶段第 3 轮时间成本: 24.41s
+排除的客户端: [5]，选择的客户端: [1, 8, 7, 2, 9, 0, 3, 4, 6]
+
+--- 恢复阶段第 4 轮 ---
+选中的客户端: [1, 8, 7, 2, 9, 0, 3, 4, 6]
+
+评估恢复阶段第 4 轮模型
+Averaged Train Loss: 0.1537
+Averaged Test Accuracy: 0.8207
+Averaged Test AUC: 0.9563
+Std Test Accuracy: 0.1937
+Std Test AUC: 0.0721
+恢复阶段第 4 轮时间成本: 23.72s
+排除的客户端: [5]，选择的客户端: [1, 6, 4, 9, 0, 8, 7, 3, 2]
+
+--- 恢复阶段第 5 轮 ---
+选中的客户端: [1, 6, 4, 9, 0, 8, 7, 3, 2]
+
+评估恢复阶段第 5 轮模型
+Averaged Train Loss: 0.1581
+Averaged Test Accuracy: 0.8243
+Averaged Test AUC: 0.9550
+Std Test Accuracy: 0.1951
+Std Test AUC: 0.0721
+恢复阶段第 5 轮时间成本: 23.33s
+
+============= 恢复阶段训练完成 =============
+恢复阶段结果:
+  第 1 轮 - 测试准确率: 0.8225, 测试AUC: 0.0000
+  第 2 轮 - 测试准确率: 0.8253, 测试AUC: 0.0000
+  第 3 轮 - 测试准确率: 0.8209, 测试AUC: 0.0000
+  第 4 轮 - 测试准确率: 0.8207, 测试AUC: 0.0000
+  第 5 轮 - 测试准确率: 0.8243, 测试AUC: 0.0000
+恢复后模型已保存到: results/exp_configs/recovery_model_Cifar10_FedAvg_test_1.pt
+
+============= 恢复后评估 =============
+
+============= 恢复后评估 =============
+客户端0 - 准确率: 0.7487, AUC: 0.9418, 测试样本数: 1500
+客户端1 - 准确率: 0.7253, AUC: 0.9355, 测试样本数: 1500
+客户端2 - 准确率: 0.4767, AUC: 0.8152, 测试样本数: 1500
+客户端3 - 准确率: 0.4687, AUC: 0.8144, 测试样本数: 1500
+客户端4 - 准确率: 0.3233, AUC: 0.7737, 测试样本数: 1500
+客户端5 - 准确率: 0.2593, AUC: 0.7460, 测试样本数: 1500
+客户端6 - 准确率: 0.8520, AUC: 0.9659, 测试样本数: 1500
+客户端7 - 准确率: 0.8700, AUC: 0.9729, 测试样本数: 1500
+客户端8 - 准确率: 0.6707, AUC: 0.8924, 测试样本数: 1500
+客户端9 - 准确率: 0.7027, AUC: 0.9156, 测试样本数: 1500
+
+平均准确率: 0.6097 ± 0.2034
+平均AUC: 0.8773 ± 0.0787
+评估结果已保存到: results/exp_configs/eval_post_recovery_Cifar10_FedAvg_test_1.json
+恢复效果: 平均准确率提升 0.0171 (2.88%)
+遗忘效果汇总已保存到: results/exp_configs/forget_effect_Cifar10_FedAvg_test_1.json
+
+============= 遗忘后攻击评估 =============
+[遗忘后MIA] AUC: 0.4981, 最佳准确率: 0.5270, 最佳阈值: 0.54
+[遗忘后后门攻击] 后门样本准确率: 0.0104
