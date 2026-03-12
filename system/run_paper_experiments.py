@@ -19,16 +19,21 @@ import run_heterogeneity_comparison as comparison
 
 DIR_FU_FINAL_TAGS = {
     "mild": {
-        "result_tag": "fu_mild_final",
+        "result_tag": "fu_mild_tp06_lr09_r2",
         "fu_recovery_target_penalty": 0.6,
+        "fu_recovery_lr_scale": 0.9,
+        "recovery_rounds": 2,
     },
     "moderate": {
-        "result_tag": "fu_moderate_final",
-        "fu_recovery_target_penalty": 0.5,
+        "result_tag": "fu_moderate_tp055_lr1_r4",
+        "fu_recovery_target_penalty": 0.55,
+        "fu_recovery_lr_scale": 1.0,
+        "recovery_rounds": 4,
     },
     "severe": {
         "result_tag": "fu_severe_final",
         "fu_recovery_target_penalty": 0.5,
+        "fu_recovery_lr_scale": 1.0,
     },
 }
 
@@ -261,8 +266,10 @@ def dir_fu_final_commands(args):
             "load_saved_model": True,
             "saved_model_path": str(base_model_path),
             "fu_recovery_target_penalty": config["fu_recovery_target_penalty"],
-            "fu_recovery_lr_scale": 1.0,
+            "fu_recovery_lr_scale": config.get("fu_recovery_lr_scale", 1.0),
         }
+        if "recovery_rounds" in config:
+            overrides["recovery_rounds"] = config["recovery_rounds"]
         commands.append((level, build_main_command(args, overrides), base_model_path, final_result_path))
     return commands
 

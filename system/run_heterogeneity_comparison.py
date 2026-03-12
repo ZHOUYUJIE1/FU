@@ -100,6 +100,7 @@ MAIN_DEFAULTS = {
     "fedosd_recovery_rounds": 1,
     "fedosd_recovery_lr": 1e-6,
     "fedosd_force_target_online": True,
+    "fedosd_max_online_clients": 0,
     "fedu_lr": 0.003,
     "fedu_eps": 0.005,
     "fedu_alpha": 0.02,
@@ -154,6 +155,7 @@ MAIN_ARG_FLAGS = {
     "fedosd_recovery_rounds": "--fedosd_recovery_rounds",
     "fedosd_recovery_lr": "--fedosd_recovery_lr",
     "fedosd_force_target_online": "--fedosd_force_target_online",
+    "fedosd_max_online_clients": "--fedosd_max_online_clients",
     "fedu_lr": "--fedu_lr",
     "fedu_eps": "--fedu_eps",
     "fedu_alpha": "--fedu_alpha",
@@ -254,6 +256,7 @@ def parse_args():
     parser.add_argument("--fedosd-recovery-rounds", type=int, default=1)
     parser.add_argument("--fedosd-recovery-lr", type=float, default=1e-6)
     parser.add_argument("--fedosd-force-target-online", type=str, default="true")
+    parser.add_argument("--fedosd-max-online-clients", type=int, default=0)
 
     parser.add_argument("--fedu-lr", type=float, default=0.003)
     parser.add_argument("--fedu-eps", type=float, default=0.005)
@@ -490,6 +493,7 @@ def build_main_command(args, dataset_name, level, method):
         "fedosd_recovery_rounds": args.fedosd_recovery_rounds,
         "fedosd_recovery_lr": args.fedosd_recovery_lr,
         "fedosd_force_target_online": args.fedosd_force_target_online.lower() == "true",
+        "fedosd_max_online_clients": args.fedosd_max_online_clients,
         "fedu_lr": args.fedu_lr,
         "fedu_eps": args.fedu_eps,
         "fedu_alpha": args.fedu_alpha,

@@ -1,24 +1,24 @@
 \begin{table*}[t]
 \centering
-\caption{Results under different Dirichlet heterogeneity levels on CIFAR-10. Lower target accuracy, MIA AUC, and backdoor accuracy indicate stronger forgetting/privacy protection, while higher average accuracy indicates better utility retention.}
+\caption{Supplementary results under mild, moderate, and severe Dirichlet heterogeneity on CIFAR-10. Lower target accuracy, MIA AUC, and backdoor accuracy indicate stronger forgetting/privacy protection, while higher average and retain-client accuracy indicate better utility retention.}
 \label{tab:heterogeneity_results}
 \begin{tabular}{llccccc}
 \toprule
 Level & Method & Final Avg. Acc. $\uparrow$ & Target Acc. $\downarrow$ & Retain Avg. Acc. $\uparrow$ & Post MIA AUC $\downarrow$ & Post Backdoor Acc. $\downarrow$ \\
 \midrule
-Mild & FU & 0.5035 & 0.3279 & 0.5230 & 0.4887 & 0.4375 \\
+Mild & FU & 0.5475 & 0.4471 & 0.5587 & 0.5223 & 0.5625 \\
  & FedAU & 0.4863 & 0.3882 & 0.4972 & 0.5207 & 0.3802 \\
  & FedCSA & 0.5552 & 0.5648 & 0.5541 & 0.6802 & 0.6042 \\
  & FedOSD & 0.3881 & 0.2176 & 0.4070 & 0.4994 & 0.3021 \\
  & Retrain & 0.4814 & 0.0827 & 0.5256 & 0.4816 & 0.4896 \\
 \midrule
-Moderate & FU & 0.5529 & 0.4035 & 0.5695 & 0.5059 & 0.4219 \\
+Moderate & FU & 0.5677 & 0.4747 & 0.5780 & 0.5184 & 0.3177 \\
  & FedAU & 0.4762 & 0.2816 & 0.4979 & 0.5186 & 0.3281 \\
  & FedCSA & 0.5812 & 0.5570 & 0.5839 & 0.4936 & 0.3802 \\
  & FedOSD & 0.4150 & 0.1013 & 0.4498 & 0.5144 & 0.0469 \\
  & Retrain & 0.5288 & 0.0206 & 0.5853 & 0.5346 & 0.5052 \\
 \midrule
-Severe & FU & 0.4490 & 0.0942 & 0.4884 & 0.5234 & 0.1562 \\
+Severe & FU & 0.4136 & 0.1957 & 0.4378 & 0.4931 & 0.3490 \\
  & FedAU & 0.3500 & 0.1087 & 0.3768 & 0.4518 & 0.2292 \\
  & FedCSA & 0.4289 & 0.3551 & 0.4371 & 0.4906 & 0.3854 \\
  & FedOSD & 0.3559 & 0.1775 & 0.3757 & 0.4562 & 0.2760 \\

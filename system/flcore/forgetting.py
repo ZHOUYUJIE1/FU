@@ -909,6 +909,69 @@ class GradientReversalForgetting:
                     break
         
         return correct / total if total > 0 else 0.0
+
+    def _build_feature_probe_loader(self, client):
+        """为特征提取构建更稳健的loader，避免小客户端因drop_last导致空batch。"""
+        batch_size = getattr(client, 'batch_size', 32)
+        num_clients = int(getattr(self.args, 'num_clients', getattr(self, 'num_clients', 0)) or 0)
+        if num_clients >= 100:
+            batch_size = min(batch_size, 8)
+        elif num_clients >= 50:
+            batch_size = min(batch_size, 16)
+
+        try:
+            trainloader = client.load_train_data(batch_size=batch_size)
+            if len(trainloader) > 0:
+                return trainloader
+        except Exception as e:
+            print(f"警告：默认训练loader构建失败，客户端{client.id}: {e}")
+
+        try:
+            from torch.utils.data import DataLoader
+            from utils.data_utils import read_client_data
+
+            train_data = read_client_data(
+                client.dataset,
+                client.id,
+                is_train=True,
+                few_shot=getattr(client, 'few_shot', False),
+            )
+            return DataLoader(train_data, batch_size, drop_last=False, shuffle=False)
+        except Exception as e:
+            print(f"警告：备用特征loader构建失败，客户端{client.id}: {e}")
+            return []
+
+    def _infer_client_feature_dim(self, client):
+        """在客户端数据极少时，为零向量回退推断特征维度。"""
+        candidate_modules = [
+            getattr(client.model, 'head', None),
+            getattr(client.model, 'fc', None),
+            getattr(client.model, 'classifier', None),
+        ]
+
+        for module in candidate_modules:
+            if module is None:
+                continue
+            for attr in ('in_features', 'in_channels', 'out_features'):
+                value = getattr(module, attr, None)
+                if isinstance(value, int) and value > 0:
+                    return value
+
+        num_classes = getattr(client, 'num_classes', None)
+        if isinstance(num_classes, int) and num_classes > 0:
+            return num_classes
+
+        return 1
+
+    def _summarize_feature_distribution(self, features):
+        """将样本级特征统一压缩为固定维度向量，便于异常回退计算。"""
+        features = np.asarray(features, dtype=np.float32)
+        if features.size == 0:
+            return np.zeros(1, dtype=np.float32)
+        if features.ndim == 1:
+            return features.astype(np.float32, copy=False)
+        flattened = features.reshape(features.shape[0], -1)
+        return flattened.mean(axis=0).astype(np.float32, copy=False)
     
     def _extract_client_features(self, global_model, clients):
         """提取客户端特征用于分簇"""
@@ -918,15 +981,16 @@ class GradientReversalForgetting:
             client.set_parameters(global_model)
             feature = self._extract_feature_from_client(client)
             features.append(feature)
-        return np.array(features)
+        return features
     
     def _extract_feature_from_client(self, client):
         """从客户端数据提取分布特征用于Wasserstein距离计算"""
         client.model.eval()
         all_features = []
+        feature_dim = None
         
         with torch.no_grad():
-            trainloader = client.load_train_data()
+            trainloader = self._build_feature_probe_loader(client)
             for batch_idx, (data, target) in enumerate(trainloader):
                 if type(data) == type([]):
                     data = data[0].to(self.device)
@@ -952,14 +1016,23 @@ class GradientReversalForgetting:
                         feature = x.view(x.size(0), -1)
                 
                 # 收集所有样本的特征，用于计算分布
-                all_features.append(feature.cpu().numpy())
+                feature_np = feature.detach().cpu().float().reshape(feature.size(0), -1).numpy()
+                if feature_np.size == 0:
+                    continue
+                feature_dim = feature_np.shape[1]
+                all_features.append(feature_np)
                 
                 # 限制批次数以控制计算量
                 if batch_idx >= 10:  # 增加批次数以获得更好的分布
                     break
         
         # 合并所有特征
-        all_features = np.concatenate(all_features, axis=0)
+        if not all_features:
+            fallback_dim = feature_dim or self._infer_client_feature_dim(client)
+            print(f"警告：客户端{client.id}未提取到有效特征，回退为零向量，维度={fallback_dim}")
+            return np.zeros((1, fallback_dim), dtype=np.float32)
+
+        all_features = np.concatenate(all_features, axis=0).astype(np.float32, copy=False)
         return all_features
     
     def _compute_wasserstein_distances(self, features_list):
@@ -991,10 +1064,23 @@ class GradientReversalForgetting:
     def _compute_distribution_distance(self, features1, features2):
         """计算两个特征分布之间的Wasserstein距离"""
         try:
+            features1 = np.asarray(features1, dtype=np.float32)
+            features2 = np.asarray(features2, dtype=np.float32)
+
+            if features1.size == 0 or features2.size == 0:
+                return self._compute_simple_distance(features1, features2)
+
             # 将特征转换为1D分布进行比较
             # 使用特征向量的范数作为分布样本
-            dist1 = np.linalg.norm(features1, axis=1)
-            dist2 = np.linalg.norm(features2, axis=1)
+            if features1.ndim == 1:
+                dist1 = features1.reshape(-1)
+            else:
+                dist1 = np.linalg.norm(features1.reshape(features1.shape[0], -1), axis=1)
+
+            if features2.ndim == 1:
+                dist2 = features2.reshape(-1)
+            else:
+                dist2 = np.linalg.norm(features2.reshape(features2.shape[0], -1), axis=1)
             
             # 计算Wasserstein距离
             from scipy.stats import wasserstein_distance
@@ -1007,9 +1093,15 @@ class GradientReversalForgetting:
     def _compute_simple_distance(self, features1, features2):
         """计算简化的分布距离（备选方案）"""
         # 使用特征均值的欧几里得距离
-        mean1 = np.mean(features1, axis=0)
-        mean2 = np.mean(features2, axis=0)
-        return np.linalg.norm(mean1 - mean2)
+        mean1 = self._summarize_feature_distribution(features1)
+        mean2 = self._summarize_feature_distribution(features2)
+
+        if mean1.shape != mean2.shape:
+            min_dim = min(mean1.shape[0], mean2.shape[0])
+            mean1 = mean1[:min_dim]
+            mean2 = mean2[:min_dim]
+
+        return float(np.linalg.norm(mean1 - mean2))
 
     def _compute_target_distance_thresholds(self, distances, target_client_id):
         """根据目标客户端与其他客户端的距离分布，自适应设置保护阈值。"""
@@ -1647,92 +1739,61 @@ class GradientReversalForgetting:
             dissimilarities.append(dissimilarity)
         
         return np.mean(dissimilarities)
+
+    def _collect_client_gradients(self, client, max_batches=4, sample_ratio=None):
+        """稳定收集客户端梯度，始终返回与模型可训练参数等长的梯度列表。"""
+        trainloader = self._build_feature_probe_loader(client)
+        if sample_ratio is not None:
+            sampled_batches = self._improved_data_sampling(trainloader, sample_ratio, max_batches)
+        else:
+            sampled_batches = list(trainloader)
+            if max_batches > 0:
+                sampled_batches = sampled_batches[:max_batches]
+
+        accumulated_gradients = self._get_zero_gradients(client.model)
+        if len(accumulated_gradients) == 0 or len(sampled_batches) == 0:
+            return accumulated_gradients
+
+        batch_count = 0
+        for data, target in sampled_batches:
+            if type(data) == type([]):
+                data = data[0].to(self.device)
+            else:
+                data = data.to(self.device)
+            target = target.to(self.device)
+
+            output = client.model(data)
+            loss = client.loss(output, target)
+
+            client.optimizer.zero_grad()
+            loss.backward()
+
+            grad_idx = 0
+            for param in client.model.parameters():
+                if not param.requires_grad:
+                    continue
+                if param.grad is not None:
+                    accumulated_gradients[grad_idx] += param.grad.detach().clone()
+                grad_idx += 1
+            batch_count += 1
+
+        if batch_count > 0:
+            for i in range(len(accumulated_gradients)):
+                accumulated_gradients[i] /= batch_count
+
+        return accumulated_gradients
     
     def _compute_gradient_residual(self, global_model, target_client):
         """计算梯度残差"""
         target_client.set_parameters(global_model)
         target_client.model.train()
-        
-        gradients = []
-        trainloader = target_client.load_train_data()
-        
-        # 计算梯度
-        for batch_idx, (data, target) in enumerate(trainloader):
-            if type(data) == type([]):
-                data = data[0].to(self.device)
-            else:
-                data = data.to(self.device)
-            target = target.to(self.device)
-            
-            output = target_client.model(data)
-            loss = target_client.loss(output, target)
-            
-            # 计算梯度
-            target_client.optimizer.zero_grad()
-            loss.backward()
-            
-            # 收集梯度
-            batch_gradients = []
-            for param in target_client.model.parameters():
-                if param.grad is not None:
-                    batch_gradients.append(param.grad.clone())
-            
-            gradients.append(batch_gradients)
-            
-            # 限制批次数
-            if batch_idx >= 3:
-                break
-        
-        # 平均梯度
-        avg_gradients = []
-        for param_idx in range(len(gradients[0])):
-            avg_grad = torch.zeros_like(gradients[0][param_idx])
-            for batch_grads in gradients:
-                avg_grad += batch_grads[param_idx]
-            avg_gradients.append(avg_grad / len(gradients))
-        
-        return avg_gradients
+        return self._collect_client_gradients(target_client, max_batches=4)
     
     def _compute_client_gradients(self, model, client):
         """计算单个客户端的梯度"""
         client.set_parameters(model)
         client.model.train()
-        
-        gradients = []
-        trainloader = client.load_train_data()
-        
-        for batch_idx, (data, target) in enumerate(trainloader):
-            if type(data) == type([]):
-                data = data[0].to(self.device)
-            else:
-                data = data.to(self.device)
-            target = target.to(self.device)
-            
-            output = client.model(data)
-            loss = client.loss(output, target)
-            
-            client.optimizer.zero_grad()
-            loss.backward()
-            
-            batch_gradients = []
-            for param in client.model.parameters():
-                if param.grad is not None:
-                    batch_gradients.append(param.grad.clone())
-            
-            gradients.append(batch_gradients)
-            
-            if batch_idx >= 5:
-                break
-        
-        # 平均梯度
-        avg_gradients = []
-        for param_idx in range(len(gradients[0])):
-            avg_grad = torch.zeros_like(gradients[0][param_idx])
-            for batch_grads in gradients:
-                avg_grad += batch_grads[param_idx]
-            avg_gradients.append(avg_grad / len(gradients))
-        
-        return avg_gradients
+        return self._collect_client_gradients(client, max_batches=6)
     
     def _compute_other_clients_gradients(self, model, other_clients):
         """计算其他客户端的平均梯度"""
@@ -2841,6 +2902,12 @@ class GradientReversalForgetting:
         if use_gradient_caching:
             if not hasattr(self, '_gradient_cache'):
                 self._gradient_cache = {}
+            else:
+                self._gradient_cache.clear()
+                import gc
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
             cache_key = self._generate_cache_key(model, target_client, other_clients)
             self._gradient_cache[cache_key] = cached_gradients
             # 添加时间戳用于缓存管理
@@ -2879,47 +2946,11 @@ class GradientReversalForgetting:
         """进一步优化的客户端梯度计算 - 使用更激进的采样和缓存"""
         client.set_parameters(model)
         client.model.train()
-        
-        gradients = []
-        trainloader = client.load_train_data()
-        
-        # 使用改进的采样策略
-        sampled_data = self._improved_data_sampling(trainloader, sample_ratio, max_batches)
-        
-        # 使用梯度累积减少内存使用
-        accumulated_gradients = None
-        
-        for batch_idx, (data, target) in enumerate(sampled_data):
-            if type(data) == type([]):
-                data = data[0].to(self.device)
-            else:
-                data = data.to(self.device)
-            target = target.to(self.device)
-            
-            output = client.model(data)
-            loss = client.loss(output, target)
-            
-            client.optimizer.zero_grad()
-            loss.backward()
-            
-            # 累积梯度而不是存储所有批次
-            if accumulated_gradients is None:
-                accumulated_gradients = []
-                for param in client.model.parameters():
-                    if param.grad is not None:
-                        accumulated_gradients.append(param.grad.clone())
-            else:
-                for i, param in enumerate(client.model.parameters()):
-                    if param.grad is not None:
-                        accumulated_gradients[i] += param.grad.clone()
-        
-        # 平均累积的梯度
-        if accumulated_gradients:
-            num_batches = len(sampled_data)
-            for i in range(len(accumulated_gradients)):
-                accumulated_gradients[i] /= num_batches
-        
-        return accumulated_gradients or []
+        return self._collect_client_gradients(
+            client,
+            max_batches=max_batches,
+            sample_ratio=sample_ratio,
+        )
     
     def _improved_data_sampling(self, trainloader, sample_ratio=0.2, max_batches=4):
         """改进的数据采样策略 - 分层采样确保数据代表性"""
@@ -3521,6 +3552,10 @@ def _sample_fedosd_online_clients(clients, args, exclude_client_ids=None, force_
     desired_clients = min_join_clients
     if getattr(args, "random_join_ratio", False):
         desired_clients = np.random.choice(range(min_join_clients, len(clients) + 1), 1, replace=False)[0]
+
+    max_online_clients = int(getattr(args, "fedosd_max_online_clients", 0) or 0)
+    if max_online_clients > 0:
+        desired_clients = min(desired_clients, max_online_clients)
 
     desired_clients = min(max(desired_clients, len(force_include_ids)), len(available_clients))
     selected = list(np.random.choice(available_clients, desired_clients, replace=False))

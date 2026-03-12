@@ -158,6 +158,7 @@ def save_experiment_config(args, seed):
         "fedosd_recovery_rounds": getattr(args, "fedosd_recovery_rounds", None),
         "fedosd_recovery_lr": getattr(args, "fedosd_recovery_lr", None),
         "fedosd_force_target_online": getattr(args, "fedosd_force_target_online", None),
+        "fedosd_max_online_clients": getattr(args, "fedosd_max_online_clients", None),
         "fedau_aux_lr": getattr(args, "fedau_aux_lr", None),
         "fedau_alpha": getattr(args, "fedau_alpha", None),
         "fedau_client_gamma": getattr(args, "fedau_client_gamma", None),
@@ -1843,6 +1844,8 @@ if __name__ == "__main__":
                         help="Learning rate for official-like FedOSD post-training")
     parser.add_argument('--fedosd_force_target_online', type=str2bool, default=True,
                         help="Ensure the target client participates in every FedOSD unlearning round")
+    parser.add_argument('--fedosd_max_online_clients', type=int, default=0,
+                        help="Optional cap on FedOSD online clients per round; 0 disables the cap")
 
     # FedAU参数
     parser.add_argument('--fedau_aux_lr', type=float, default=0.0,

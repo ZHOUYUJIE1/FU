@@ -1,0 +1,9 @@
+# CIFAR-100 Supplementary Results (Paper-Ready)
+
+## Chinese paragraph
+
+在 CIFAR-100 上的轻度、中度和重度 Dirichlet 异构设置下，我们比较了 FU、FedAU、FedCSA、FedOSD 与 Retrain。结果表明，不同方法在效用、遗忘强度与隐私指标上呈现互补优势：在轻度异构下，FU 获得最高最终平均精度（final\_avg\_acc=0.3041）与最高保留客户端平均精度（final\_retain\_avg\_acc=0.3179）；在中度与重度异构下，FedCSA 在最终平均精度上分别达到 0.2688 与 0.2613；在遗忘强度方面，Retrain 在三种异构程度下均取得最低目标客户端精度（mild: 0.0210, moderate: 0.0080, severe: 0.0052）。此外，FedOSD 在后门攻击指标上更具优势（例如 severe 下 backdoor\_post\_acc=0.0052），而 FU 在 severe 下取得最低 MIA AUC（0.4881），体现了较好的隐私-效用平衡。总体而言，FU 在复杂数据集上保持了稳定的综合表现，FedCSA 偏重全局效用，Retrain 偏重极致遗忘，FedOSD 偏重攻击面抑制。
+
+## English paragraph
+
+On CIFAR-100 under mild, moderate, and severe Dirichlet heterogeneity, we compare FU, FedAU, FedCSA, FedOSD, and Retrain. The results show a clear trade-off across utility, forgetting strength, and privacy indicators. Under mild heterogeneity, FU achieves the best final utility (final_avg_acc=0.3041) and the best retained-client utility (final_retain_avg_acc=0.3179). Under moderate and severe heterogeneity, FedCSA attains the highest final utility (0.2688 and 0.2613, respectively). For forgetting strength, Retrain consistently yields the lowest target-client accuracy across all levels (mild: 0.0210, moderate: 0.0080, severe: 0.0052). In addition, FedOSD is strongest on backdoor suppression (e.g., backdoor_post_acc=0.0052 under severe heterogeneity), while FU achieves the lowest post-unlearning MIA AUC under severe heterogeneity (0.4881), indicating a favorable privacy-utility balance. Overall, FU remains a robust balanced method on this more challenging dataset, whereas FedCSA emphasizes utility, Retrain emphasizes strongest forgetting, and FedOSD emphasizes attack-surface reduction.
