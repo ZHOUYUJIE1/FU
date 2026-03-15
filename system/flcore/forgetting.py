@@ -633,19 +633,46 @@ class GradientReversalForgetting:
         
         # 保护强度配置
         self.protection_level = getattr(args, 'protection_level', 'weak')  # 'strong', 'moderate', 'weak'
-        
+
         # 知识锚点保护配置
-        self.use_knowledge_anchoring = getattr(args, 'use_knowledge_anchoring', True)
-        self.anchor_weight = getattr(args, 'anchor_weight', 0.5)  # 锚点损失权重（调整为0.5，平衡遗忘和保护）
-        self.anchor_sample_ratio = getattr(args, 'anchor_sample_ratio', 0.1)  # 锚点数据采样比例
-        self.anchor_start_epoch = getattr(args, 'anchor_start_epoch', 0)  # 开始应用锚点保护的轮次（从第0轮开始）
-        
+        self.use_knowledge_anchoring = getattr(
+            args, 'fu_use_knowledge_anchoring',
+            getattr(args, 'use_knowledge_anchoring', True)
+        )
+        self.anchor_weight = getattr(
+            args, 'fu_anchor_weight',
+            getattr(args, 'anchor_weight', 0.5)
+        )
+        self.anchor_sample_ratio = getattr(
+            args, 'fu_anchor_sample_ratio',
+            getattr(args, 'anchor_sample_ratio', 0.1)
+        )
+        self.anchor_start_epoch = getattr(
+            args, 'fu_anchor_start_epoch',
+            getattr(args, 'anchor_start_epoch', 0)
+        )
+
         # 平衡改进配置
-        self.use_selective_anchoring = getattr(args, 'use_selective_anchoring', True)  # 启用选择性锚点保护
-        self.selective_protection_threshold = getattr(args, 'selective_protection_threshold', 0.6)  # 选择性保护阈值
-        self.use_progressive_weight = getattr(args, 'use_progressive_weight', True)  # 启用渐进式权重
-        self.use_forget_compensation = getattr(args, 'use_forget_compensation', True)  # 启用遗忘强度补偿
-        self.use_intelligent_gradient = getattr(args, 'use_intelligent_gradient', True)  # 启用智能梯度组合
+        self.use_selective_anchoring = getattr(
+            args, 'fu_use_selective_anchoring',
+            getattr(args, 'use_selective_anchoring', True)
+        )
+        self.selective_protection_threshold = getattr(
+            args, 'fu_selective_protection_threshold',
+            getattr(args, 'selective_protection_threshold', 0.6)
+        )
+        self.use_progressive_weight = getattr(
+            args, 'fu_use_progressive_weight',
+            getattr(args, 'use_progressive_weight', True)
+        )
+        self.use_forget_compensation = getattr(
+            args, 'fu_use_forget_compensation',
+            getattr(args, 'use_forget_compensation', True)
+        )
+        self.use_intelligent_gradient = getattr(
+            args, 'fu_use_intelligent_gradient',
+            getattr(args, 'use_intelligent_gradient', True)
+        )
 
         # 遗忘后保留校准配置
         self.retain_calibration_rounds = max(0, int(getattr(args, 'fu_retain_calibration_rounds', 2)))
@@ -653,6 +680,11 @@ class GradientReversalForgetting:
         self.retain_calibration_batches = max(1, int(getattr(args, 'fu_retain_calibration_batches', 3)))
         self.mask_retain_scale = float(getattr(args, 'fu_mask_retain_scale', 0.12))
         self.similarity_boost = float(getattr(args, 'fu_similarity_boost', 1.2))
+        self.retain_gradient_scale = float(getattr(args, 'fu_retain_gradient_scale', 1.0))
+        self.forget_mask_top_ratio = float(getattr(args, 'fu_mask_top_ratio', 0.1))
+        self.reference_client_count = max(1, int(getattr(args, 'fu_reference_client_count', 4)))
+        self.exclusive_mask_beta = float(getattr(args, 'fu_exclusive_mask_beta', 1.0))
+        self.gradient_balance_target = float(getattr(args, 'fu_gradient_balance_target', 1.0))
         
         print(f"分簇策略配置:")
         print(f"  - 多层次分簇: {self.use_hierarchical_clustering}")
@@ -676,6 +708,11 @@ class GradientReversalForgetting:
         print(f"  - 校准批次数: {self.retain_calibration_batches}")
         print(f"  - 掩码保留系数: {self.mask_retain_scale}")
         print(f"  - 相似客户端加权系数: {self.similarity_boost}")
+        print(f"  - retain梯度增益: {self.retain_gradient_scale}")
+        print(f"  - forget mask比例: {self.forget_mask_top_ratio}")
+        print(f"  - mask参考客户端数: {self.reference_client_count}")
+        print(f"  - 目标独有参数系数: {self.exclusive_mask_beta}")
+        print(f"  - 梯度平衡目标: {self.gradient_balance_target}")
         
         # 打印优化配置摘要
         opt_summary = self.opt_config.get_optimization_summary()
@@ -702,6 +739,7 @@ class GradientReversalForgetting:
         """使用改进的梯度反转进行遗忘"""
         print(f"\n============= 开始改进的梯度反转遗忘客户端 {target_client_id} =============")
         self.target_client_id = target_client_id
+        self._clients_by_id = {client.id: client for client in clients}
         
         # 1. 提取客户端特征
         print("1. 提取客户端特征...")
@@ -720,11 +758,19 @@ class GradientReversalForgetting:
         
         print(f"分簇结果: {cluster_labels}")
         print(f"异常客户端: {anomaly_clients}")
+        self._last_cluster_labels = cluster_labels
+        self._last_distances = distances
+        self._last_target_client_id = target_client_id
         
         # 4. 生成遗忘掩码
         print("4. 生成遗忘掩码...")
         target_client = clients[target_client_id]
-        mask = self._generate_forget_mask(global_model, target_client)
+        mask = self._generate_forget_mask(
+            global_model,
+            target_client,
+            top_ratio=self.forget_mask_top_ratio,
+        )
+        self._forget_mask = mask
         
         # 5. 改进的梯度反转训练
         print("5. 开始改进的梯度反转训练...")
@@ -732,13 +778,17 @@ class GradientReversalForgetting:
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
         
         other_clients = [c for c in clients if c.id != target_client_id]
-        
+
         # 计算其他客户端的重要性权重（使用改进的方法）
         other_weights = self._compute_client_importance_weights(target_client, other_clients, distances, cluster_labels)
         weight_denominator = float(np.sum(other_weights)) if len(other_weights) > 0 else 1.0
+        retain_strength_matrix = self._precompute_retain_strengths(
+            target_client, other_clients, epochs, cluster_labels, distances
+        )
         
         for epoch in range(epochs):
             optimizer.zero_grad()
+            self._last_epoch = epoch
             
             # 计算目标客户端的梯度
             target_gradients = self._compute_client_gradients(model, target_client)
@@ -754,18 +804,13 @@ class GradientReversalForgetting:
                     combined_grad = torch.zeros_like(target_gradients[param_idx])
                     
                     for i, client in enumerate(other_clients):
-                        # 计算该客户端的自适应遗忘强度
-                        adaptive_strength = self._adaptive_forget_strength(
-                            target_client, client, epoch, epochs, lambda_reversal,
-                            cluster_labels, distances  # 传递分簇信息
-                        )
-                        adaptive_strength *= other_weights[i]
+                        retain_strength = retain_strength_matrix[epoch][i] * other_weights[i]
                         
                         # 计算该客户端的梯度
                         client_gradients = self._compute_client_gradients(model, client)
                         
-                        # 应用自适应强度
-                        client_grad = client_gradients[param_idx] * adaptive_strength
+                        # retain梯度使用解耦的保护强度，不随遗忘强度同步缩放
+                        client_grad = client_gradients[param_idx] * retain_strength
                         combined_grad += client_grad
                     
                     # 梯度反转：目标客户端梯度取反
@@ -774,16 +819,14 @@ class GradientReversalForgetting:
                     # 组合梯度：反转的目标梯度 + 其他客户端的自适应梯度
                     # 对其他客户端的组合梯度做总量约束
                     if len(other_clients) > 0:
-                        combined_grad = combined_grad * (0.8 / max(weight_denominator, 1e-12))
-                    # 若存在遗忘掩码，只在非掩码参数上保留其他客户端梯度，避免抵消遗忘
-                    try:
-                        if hasattr(self, '_forget_mask') and self._forget_mask is not None:
-                            mask_param = self._forget_mask[param_idx]
-                            if mask_param is not None:
-                                combined_grad = combined_grad * (1.0 - mask_param.to(combined_grad.device))
-                    except Exception:
-                        pass
-                    param.grad = reversed_grad + combined_grad
+                        combined_grad = combined_grad / max(weight_denominator, 1e-12)
+                    mask_param = mask[param_idx] if mask is not None else None
+                    param.grad = self._compute_intelligent_gradient_combination(
+                        reversed_grad,
+                        combined_grad,
+                        mask_param,
+                        target_grad=target_gradients[param_idx],
+                    )
                     param_idx += 1
             
             optimizer.step()
@@ -798,8 +841,12 @@ class GradientReversalForgetting:
         
         # 打印性能统计
         self._print_performance_summary()
-        
-        return model
+
+        return {
+            "model": model,
+            "recovery_context": self._build_recovery_context(),
+            "metadata": self._build_forget_metadata(),
+        }
     
     def _validate_forgetting_effect(self, model, target_client, other_clients, pre_accuracies=None):
         """改进的遗忘效果验证，提供更详细的分析"""
@@ -1643,83 +1690,120 @@ class GradientReversalForgetting:
         return list(set(anomaly_clients))  # 去重
     
     def _generate_forget_mask(self, global_model, target_client, top_ratio=0.1):
-        """生成遗忘掩码 - 考虑目标客户端与其他距离大的客户端的差异"""
-        # 计算目标客户端的梯度残差
+        """生成更偏向目标独有参数的遗忘掩码。"""
         target_gradients = self._compute_gradient_residual(global_model, target_client)
-        
-        # 获取目标客户端所在簇的其他客户端
-        cluster_members = self._get_cluster_members(target_client.id if hasattr(target_client, 'id') else 0)
-        
-        # 计算簇内其他客户端的平均梯度
-        cluster_gradients = None
-        if cluster_members:
-            cluster_gradients_list = []
-            for client_id in cluster_members:
-                if client_id != (target_client.id if hasattr(target_client, 'id') else 0):
-                    client = self._get_client_by_id(client_id)
-                    if client:
-                        client_gradients = self._compute_gradient_residual(global_model, client)
-                        cluster_gradients_list.append(client_gradients)
-            
-            if cluster_gradients_list:
-                # 计算簇内平均梯度
-                cluster_gradients = []
-                for i in range(len(cluster_gradients_list[0])):
-                    avg_grad = torch.zeros_like(cluster_gradients_list[0][i])
-                    for grad in cluster_gradients_list:
-                        avg_grad += grad[i]
-                    avg_grad /= len(cluster_gradients_list)
-                    cluster_gradients.append(avg_grad)
-        
-        # 使用自适应阈值选择
-        all_params = []
-        for grad in target_gradients:
-            all_params.extend(grad.flatten().cpu().numpy())
-        
-        # 动态调整top_ratio基于簇内差异
-        if cluster_gradients:
-            # 计算目标客户端与簇内其他客户端的梯度差异
-            dissimilarity_score = self._compute_gradient_dissimilarity(target_gradients, cluster_gradients)
-            
-            # 如果差异大，使用更精确的掩码
-            if dissimilarity_score > 0.7:
-                top_ratio = max(0.05, top_ratio * 0.8)  # 更精确
-            elif dissimilarity_score < 0.3:
-                top_ratio = min(0.15, top_ratio * 1.2)  # 更宽泛
-        
-        # 基于梯度分布自适应调整
-        abs_params = np.abs(all_params)
-        if len(abs_params) > 0:
-            mean_grad = np.mean(abs_params)
-            std_grad = np.std(abs_params)
-            
-            # 如果梯度分布比较集中，减少选择比例
-            if std_grad < mean_grad * 0.5:
-                top_ratio = max(0.05, top_ratio * 0.8)
-            elif std_grad > mean_grad * 2.0:
-                top_ratio = min(0.15, top_ratio * 1.2)
-        
-        # 计算阈值
-        threshold = np.percentile(abs_params, (1 - top_ratio) * 100)
-        
-        # 生成掩码
+        self._forget_target_gradients = [
+            grad.detach().cpu().clone() for grad in target_gradients
+        ]
+        reference_clients = self._select_reference_clients_for_mask(target_client.id)
+        reference_gradients = self._compute_reference_gradients(global_model, reference_clients)
+
+        # 默认最小mask比例设得更小，减少对共享表示的误伤。
+        top_ratio = max(0.02, min(0.15, float(top_ratio)))
+        if reference_gradients is not None:
+            top_ratio = max(0.02, top_ratio * 0.8)
+
+        scores = self._compute_target_exclusive_scores(target_gradients, reference_gradients)
+        flat_scores = np.concatenate([score.flatten().cpu().numpy() for score in scores]) if scores else np.array([])
+
+        if flat_scores.size == 0:
+            return [torch.zeros_like(grad) for grad in target_gradients]
+
+        positive_scores = flat_scores[flat_scores > 0]
+        if positive_scores.size == 0:
+            # 若没有明显目标独有参数，退化为最保守的目标梯度top-k。
+            flat_scores = np.concatenate([torch.abs(grad).flatten().cpu().numpy() for grad in target_gradients])
+        else:
+            flat_scores = positive_scores
+
+        threshold = np.percentile(flat_scores, (1 - top_ratio) * 100)
         mask = []
-        for grad in target_gradients:
-            mask_param = (torch.abs(grad) >= threshold).float()
+        selected = 0
+        total = 0
+        for score in scores:
+            mask_param = (score >= threshold).float()
+            selected += int(mask_param.sum().item())
+            total += mask_param.numel()
             mask.append(mask_param)
-        
+
+        ref_ids = [client.id for client in reference_clients]
+        self._last_mask_reference_client_ids = ref_ids
+        self._last_forget_mask_ratio = selected / max(total, 1)
+        print(
+            f"目标独有forget mask已生成: 参考客户端={ref_ids}, "
+            f"mask占比={self._last_forget_mask_ratio:.4f}"
+        )
         return mask
-    
+
+    def _select_reference_clients_for_mask(self, target_client_id):
+        """选择与目标客户端最相近的保留客户端，作为共享知识参考。"""
+        if not hasattr(self, "_clients_by_id") or not hasattr(self, "_last_distances"):
+            return []
+
+        candidate_clients = []
+        distances = self._last_distances
+        for client_id, client in self._clients_by_id.items():
+            if client_id == target_client_id:
+                continue
+            try:
+                distance = float(distances[target_client_id][client_id])
+            except Exception:
+                distance = float("inf")
+            candidate_clients.append((distance, client))
+
+        candidate_clients.sort(key=lambda item: item[0])
+        selected = [client for _, client in candidate_clients[:self.reference_client_count]]
+        return selected
+
+    def _compute_reference_gradients(self, global_model, reference_clients):
+        if not reference_clients:
+            return None
+
+        weighted_grads = None
+        weight_sum = 0.0
+        for client in reference_clients:
+            client_gradients = self._compute_gradient_residual(global_model, client)
+            distance = 1.0
+            try:
+                distance = float(self._last_distances[self.target_client_id][client.id])
+            except Exception:
+                distance = 1.0
+            weight = 1.0 / max(distance, 1e-6)
+            if weighted_grads is None:
+                weighted_grads = [grad * weight for grad in client_gradients]
+            else:
+                for idx, grad in enumerate(client_gradients):
+                    weighted_grads[idx] += grad * weight
+            weight_sum += weight
+
+        if weighted_grads is None or weight_sum <= 0:
+            return None
+        for idx in range(len(weighted_grads)):
+            weighted_grads[idx] /= weight_sum
+        return weighted_grads
+
+    def _compute_target_exclusive_scores(self, target_gradients, reference_gradients):
+        scores = []
+        for idx, target_grad in enumerate(target_gradients):
+            abs_target = torch.abs(target_grad)
+            if reference_gradients is None:
+                scores.append(abs_target)
+                continue
+
+            abs_reference = torch.abs(reference_gradients[idx]).to(abs_target.device)
+            exclusive_score = torch.clamp(abs_target - self.exclusive_mask_beta * abs_reference, min=0.0)
+            # 乘上目标梯度幅值，优先保留“既大又更独有”的参数。
+            scores.append(exclusive_score * abs_target)
+        return scores
+
     def _get_cluster_members(self, target_client_id):
-        """获取目标客户端所在簇的其他客户端ID"""
-        # 这里需要根据实际的分簇结果来获取
-        # 暂时返回空列表，实际实现时需要保存分簇结果
-        return []
-    
+        """获取与目标客户端最相关的参考客户端ID。"""
+        return [client.id for client in self._select_reference_clients_for_mask(target_client_id)]
+
     def _get_client_by_id(self, client_id):
-        """根据客户端ID获取客户端对象"""
-        # 这里需要根据实际的客户端列表来获取
-        # 暂时返回None，实际实现时需要传入客户端列表
+        """根据客户端ID获取客户端对象。"""
+        if hasattr(self, "_clients_by_id"):
+            return self._clients_by_id.get(client_id)
         return None
     
     def _compute_gradient_dissimilarity(self, gradients1, gradients2):
@@ -1910,6 +1994,72 @@ class GradientReversalForgetting:
         # 这里可以基于客户端ID从距离矩阵中获取
         # 暂时返回一个默认值
         return 0.5
+
+    def _compute_retain_protection_strength(
+        self,
+        target_client,
+        other_client,
+        epoch,
+        max_epochs,
+        cluster_labels=None,
+        distances=None,
+    ):
+        """与遗忘强度解耦的retain保护强度。"""
+        warmup = 0.8 + 0.2 * ((epoch + 1) / max(max_epochs, 1))
+        strength = 1.0
+
+        if cluster_labels is not None and distances is not None:
+            target_client_id = target_client.id if hasattr(target_client, 'id') else self.target_client_id
+            other_client_id = other_client.id
+            distance_to_target = float(distances[target_client_id][other_client_id])
+            target_cluster_id = cluster_labels[target_client_id]
+            other_cluster_id = cluster_labels[other_client_id]
+            high_similarity_threshold, medium_similarity_threshold = getattr(
+                self, '_distance_protection_thresholds', (0.3, 0.6)
+            )
+
+            if other_cluster_id == target_cluster_id:
+                if self.protection_level == 'strong':
+                    strength = 1.55
+                elif self.protection_level == 'moderate':
+                    strength = 1.35
+                else:
+                    strength = 1.20
+            elif distance_to_target < high_similarity_threshold:
+                if self.protection_level == 'strong':
+                    strength = 1.40
+                elif self.protection_level == 'moderate':
+                    strength = 1.25
+                else:
+                    strength = 1.10
+            elif distance_to_target < medium_similarity_threshold:
+                if self.protection_level == 'strong':
+                    strength = 1.20
+                elif self.protection_level == 'moderate':
+                    strength = 1.10
+                else:
+                    strength = 1.00
+            else:
+                if self.protection_level == 'strong':
+                    strength = 1.00
+                elif self.protection_level == 'moderate':
+                    strength = 0.95
+                else:
+                    strength = 0.90
+        else:
+            gradient_similarity = self._compute_gradient_similarity(target_client, other_client)
+            if gradient_similarity > 0.7:
+                strength = 1.35 if self.protection_level == 'strong' else 1.20 if self.protection_level == 'moderate' else 1.05
+            elif gradient_similarity > 0.4:
+                strength = 1.15 if self.protection_level == 'strong' else 1.05 if self.protection_level == 'moderate' else 0.95
+            else:
+                strength = 1.0 if self.protection_level == 'strong' else 0.95 if self.protection_level == 'moderate' else 0.90
+
+        pre_acc = self._pre_acc_map.get(other_client.id) if hasattr(self, '_pre_acc_map') else None
+        if pre_acc is not None:
+            strength *= 1.0 + max(0.0, pre_acc - 0.5) * 0.25
+
+        return max(0.5, strength * warmup)
     
     def _adaptive_forget_strength(self, target_client, other_client, epoch, max_epochs, lambda_reversal=0.15, 
                                  cluster_labels=None, distances=None):
@@ -2028,6 +2178,7 @@ class GradientReversalForgetting:
         """优化版本的梯度反转遗忘 - 解决计算量过大问题"""
         print(f"\n============= 开始优化版梯度反转遗忘客户端 {target_client_id} =============")
         self.target_client_id = target_client_id
+        self._clients_by_id = {client.id: client for client in clients}
         
         # 1. 提取客户端特征
         print("1. 提取客户端特征...")
@@ -2046,18 +2197,20 @@ class GradientReversalForgetting:
         
         print(f"分簇结果: {cluster_labels}")
         print(f"异常客户端: {anomaly_clients}")
-        
-        # 4. 生成遗忘掩码
-        print("4. 生成遗忘掩码...")
-        target_client = clients[target_client_id]
-        mask = self._generate_forget_mask(global_model, target_client)
-        # 保存掩码用于反转梯度时的参数级选择
-        self._forget_mask = mask
-        
-        # 保存分簇与距离用于后续相似度加权保护
         self._last_cluster_labels = cluster_labels
         self._last_distances = distances
         self._last_target_client_id = target_client_id
+
+        # 4. 生成遗忘掩码
+        print("4. 生成遗忘掩码...")
+        target_client = clients[target_client_id]
+        mask = self._generate_forget_mask(
+            global_model,
+            target_client,
+            top_ratio=self.forget_mask_top_ratio,
+        )
+        # 保存掩码用于反转梯度时的参数级选择
+        self._forget_mask = mask
         
         # 5. 优化版梯度反转训练 - 使用智能缓存
         print("5. 开始优化版梯度反转训练...")
@@ -2091,8 +2244,8 @@ class GradientReversalForgetting:
         
         # 预计算自适应遗忘强度矩阵，避免重复计算
         print("7. 预计算自适应遗忘强度矩阵...")
-        adaptive_strength_matrix = self._precompute_adaptive_strengths(
-            target_client, other_clients, epochs, lambda_reversal, cluster_labels, distances
+        retain_strength_matrix = self._precompute_retain_strengths(
+            target_client, other_clients, epochs, cluster_labels, distances
         )
         
         # 使用智能缓存机制，只在必要时重新计算梯度
@@ -2101,6 +2254,7 @@ class GradientReversalForgetting:
         
         for epoch in range(epochs):
             optimizer.zero_grad()
+            self._last_epoch = epoch
             
             # 检查模型是否发生变化，决定是否需要重新计算梯度
             current_model_hash = self._compute_model_hash(model)
@@ -2127,8 +2281,8 @@ class GradientReversalForgetting:
                     combined_grad = torch.zeros_like(cached_gradients['target'][param_idx])
                     
                     for i, client in enumerate(other_clients):
-                        # 使用预计算的自适应强度（已包含分簇与相似性保护）
-                        adaptive_strength = adaptive_strength_matrix[epoch][i] * other_weights[i]
+                        # retain梯度使用解耦的保护强度，不再跟lambda_reversal绑定
+                        adaptive_strength = retain_strength_matrix[epoch][i] * other_weights[i]
                         
                         # 使用缓存的梯度
                         client_grad = cached_gradients['others'][i][param_idx] * adaptive_strength
@@ -2165,6 +2319,9 @@ class GradientReversalForgetting:
                         else:
                             # 智能方法：移除过度约束，稍后通过智能组合调整
                             combined_grad = combined_grad / max(weight_denominator, 1e-12)
+
+                    if self.retain_gradient_scale != 1.0:
+                        combined_grad = combined_grad * self.retain_gradient_scale
                     
                     # 若存在遗忘掩码，只在非掩码参数上保留其他客户端梯度，避免抵消遗忘
                     # 注意：如果启用智能梯度组合，这一步会在智能组合中处理
@@ -2182,10 +2339,18 @@ class GradientReversalForgetting:
                     # 组合梯度：使用智能梯度组合或原始方法
                     if self.use_intelligent_gradient:
                         param.grad = self._compute_intelligent_gradient_combination(
-                            reversed_grad, combined_grad, mask_param
+                            reversed_grad,
+                            combined_grad,
+                            mask_param,
+                            target_grad=cached_gradients['target'][param_idx],
                         )
                     else:
-                        param.grad = reversed_grad + combined_grad
+                        param.grad = self._compute_intelligent_gradient_combination(
+                            reversed_grad,
+                            combined_grad,
+                            mask_param,
+                            target_grad=cached_gradients['target'][param_idx],
+                        )
                     param_idx += 1
             
             # 知识锚点保护 - 从指定轮次开始应用
@@ -2279,8 +2444,12 @@ class GradientReversalForgetting:
         
         # 打印性能统计
         self._print_performance_summary()
-        
-        return model
+
+        return {
+            "model": model,
+            "recovery_context": self._build_recovery_context(),
+            "metadata": self._build_forget_metadata(),
+        }
 
     def _run_masked_retain_calibration(self, model, other_clients, target_client_id, distances,
                                        cluster_labels, other_weights):
@@ -2722,7 +2891,13 @@ class GradientReversalForgetting:
         
         return compensated_strength
     
-    def _compute_intelligent_gradient_combination(self, reversed_grad, combined_grad, forget_mask=None):
+    def _compute_intelligent_gradient_combination(
+        self,
+        reversed_grad,
+        combined_grad,
+        forget_mask=None,
+        target_grad=None,
+    ):
         """
         智能梯度组合：确保遗忘梯度占主导
         
@@ -2739,39 +2914,79 @@ class GradientReversalForgetting:
         Returns:
             final_grad: 最终组合梯度
         """
-        if not self.use_intelligent_gradient:
-            # 如果不启用智能组合，使用原始方法
-            if forget_mask is not None:
-                combined_grad = combined_grad * (1.0 - forget_mask)
-            return reversed_grad + combined_grad
-        
+        return self._combine_decoupled_gradients(
+            reversed_grad,
+            combined_grad,
+            forget_mask=forget_mask,
+            target_grad=target_grad,
+        )
+
+    def _combine_decoupled_gradients(self, reversed_grad, retain_grad, forget_mask=None, target_grad=None):
+        """解耦forget/retain梯度，并抑制目标知识在掩码参数上的回流。"""
         try:
+            if target_grad is None:
+                target_grad = -reversed_grad
+
+            if forget_mask is not None:
+                mask = forget_mask.to(retain_grad.device)
+            else:
+                mask = None
+
+            adjusted_retain = retain_grad
+            if mask is not None:
+                unmasked_retain = retain_grad * (1.0 - mask)
+                masked_retain = retain_grad * mask
+                adjusted_masked_retain = self._suppress_revival_component(
+                    masked_retain,
+                    target_grad,
+                    mask,
+                )
+                adjusted_retain = unmasked_retain + adjusted_masked_retain
+
             reversed_norm = torch.norm(reversed_grad).item()
-            combined_norm = torch.norm(combined_grad).item()
-            
-            # 计算比例
-            ratio = reversed_norm / max(combined_norm, 1e-8)
-            
-            # 如果保护梯度过大（比例 < 1.5），减少保护梯度
-            if ratio < 1.5:
-                # 动态调整：减少保护梯度，确保遗忘占主导
-                reduction_factor = max(0.5, ratio / 1.5)  # 至少保留50%
-                combined_grad = combined_grad * reduction_factor
-                if hasattr(self, '_last_epoch') and self._last_epoch % 5 == 0:
-                    print(f"  ⚠️ 保护梯度过大，调整因子: {reduction_factor:.3f}, 比例: {ratio:.3f}")
-            
-            # 在目标相关参数上，进一步减少保护梯度
-            if forget_mask is not None:
-                combined_grad = combined_grad * (1.0 - forget_mask)
-            
-            return reversed_grad + combined_grad
-            
+            retain_norm = torch.norm(adjusted_retain).item()
+            if self.use_intelligent_gradient and reversed_norm > 0 and retain_norm > 0:
+                target_ratio = max(0.1, float(self.gradient_balance_target))
+                max_retain_norm = reversed_norm * target_ratio
+                if retain_norm > max_retain_norm:
+                    reduction_factor = max_retain_norm / retain_norm
+                    adjusted_retain = adjusted_retain * reduction_factor
+                    if hasattr(self, '_last_epoch') and self._last_epoch % 5 == 0:
+                        print(
+                            f"  ⚖️ retain梯度按平衡目标缩放: factor={reduction_factor:.3f}, "
+                            f"retain/forget={retain_norm / max(reversed_norm, 1e-8):.3f}"
+                        )
+
+            return reversed_grad + adjusted_retain
         except Exception as e:
-            print(f"警告：智能梯度组合计算失败: {e}")
-            # 失败时使用原始方法
+            print(f"警告：解耦梯度组合失败: {e}")
             if forget_mask is not None:
-                combined_grad = combined_grad * (1.0 - forget_mask)
+                combined_grad = retain_grad * (1.0 - forget_mask.to(retain_grad.device))
+            else:
+                combined_grad = retain_grad
             return reversed_grad + combined_grad
+
+    def _suppress_revival_component(self, masked_retain_grad, target_grad, mask):
+        """在掩码参数上移除会把模型拉回目标客户端方向的梯度分量。"""
+        if target_grad is None:
+            return masked_retain_grad * self.mask_retain_scale
+
+        masked_target_grad = target_grad.to(masked_retain_grad.device) * mask
+        denom = torch.sum(masked_target_grad * masked_target_grad)
+        if denom.item() <= 0:
+            return masked_retain_grad * self.mask_retain_scale
+
+        projection_coeff = torch.sum(masked_retain_grad * masked_target_grad) / (denom + 1e-12)
+        positive_projection = torch.clamp(projection_coeff, min=0.0)
+        aligned_component = positive_projection * masked_target_grad
+        anti_aligned_component = (projection_coeff - positive_projection) * masked_target_grad
+        orthogonal_component = masked_retain_grad - projection_coeff * masked_target_grad
+
+        return (
+            orthogonal_component
+            + anti_aligned_component
+            + aligned_component * self.mask_retain_scale
+        )
     
     def _compute_global_protection_scale(self, target_client_id, other_clients, cluster_labels, distances):
         """根据整体相似性与分簇情况计算全局保护缩放系数(0.5-1.0)。
@@ -2864,6 +3079,49 @@ class GradientReversalForgetting:
         
         print(f"预计算完成，矩阵大小: {len(adaptive_strength_matrix)} x {len(adaptive_strength_matrix[0])}")
         return adaptive_strength_matrix
+
+    def _precompute_retain_strengths(self, target_client, other_clients, epochs, cluster_labels, distances):
+        """预计算retain保护强度矩阵，与遗忘强度解耦。"""
+        print("预计算retain保护强度矩阵...")
+        retain_strength_matrix = []
+
+        for epoch in range(epochs):
+            epoch_strengths = []
+            for client in other_clients:
+                strength = self._compute_retain_protection_strength(
+                    target_client,
+                    client,
+                    epoch,
+                    epochs,
+                    cluster_labels,
+                    distances,
+                )
+                epoch_strengths.append(strength)
+            retain_strength_matrix.append(epoch_strengths)
+
+        if retain_strength_matrix:
+            print(f"预计算完成，矩阵大小: {len(retain_strength_matrix)} x {len(retain_strength_matrix[0])}")
+        return retain_strength_matrix
+
+    def _build_recovery_context(self):
+        if not hasattr(self, '_forget_mask') or self._forget_mask is None:
+            return None
+
+        forget_mask = [mask.detach().cpu().clone() for mask in self._forget_mask]
+        target_gradients = getattr(self, '_forget_target_gradients', None)
+        if target_gradients is not None:
+            target_gradients = [grad.detach().cpu().clone() for grad in target_gradients]
+
+        return {
+            "forget_mask": forget_mask,
+            "target_gradients": target_gradients,
+        }
+
+    def _build_forget_metadata(self):
+        return {
+            "forget_mask_ratio": float(getattr(self, "_last_forget_mask_ratio", 0.0)),
+            "mask_reference_client_ids": list(getattr(self, "_last_mask_reference_client_ids", [])),
+        }
     
     def _compute_cached_gradients(self, model, target_client, other_clients):
         """使用改进的缓存机制计算梯度，避免重复计算"""
@@ -3172,6 +3430,14 @@ class GradientReversalForgetting:
 def forget_client_with_gradient_reversal(global_model, clients, args, target_client_id=0, pre_accuracies=None):
     """梯度反转遗忘的包装函数"""
     reversal_forget = GradientReversalForgetting(args)
+    forget_epochs = int(getattr(args, 'fu_forget_epochs', 10))
+    forget_lr = float(getattr(args, 'fu_forget_lr', 0.001))
+    lambda_reversal = float(getattr(args, 'fu_lambda_reversal', 0.3))
+
+    print(
+        f"FU遗忘超参: epochs={forget_epochs}, lr={forget_lr}, "
+        f"lambda_reversal={lambda_reversal}"
+    )
     
     # 检查是否使用优化版本
     use_optimized = getattr(args, 'use_optimized_forgetting', False)
@@ -3179,19 +3445,40 @@ def forget_client_with_gradient_reversal(global_model, clients, args, target_cli
     if use_optimized:
         print("使用优化版梯度反转遗忘...")
         return reversal_forget.forget_with_gradient_reversal_optimized(
-            global_model, clients, target_client_id, pre_accuracies=pre_accuracies
+            global_model,
+            clients,
+            target_client_id,
+            epochs=forget_epochs,
+            lr=forget_lr,
+            lambda_reversal=lambda_reversal,
+            pre_accuracies=pre_accuracies,
         )
     else:
         print("使用标准版梯度反转遗忘...")
         return reversal_forget.forget_with_gradient_reversal(
-            global_model, clients, target_client_id, pre_accuracies=pre_accuracies
+            global_model,
+            clients,
+            target_client_id,
+            epochs=forget_epochs,
+            lr=forget_lr,
+            lambda_reversal=lambda_reversal,
+            pre_accuracies=pre_accuracies,
         )
 
 def forget_client_with_gradient_reversal_optimized(global_model, clients, args, target_client_id=0, pre_accuracies=None):
     """优化版梯度反转遗忘的包装函数"""
     reversal_forget = GradientReversalForgetting(args)
+    forget_epochs = int(getattr(args, 'fu_forget_epochs', 10))
+    forget_lr = float(getattr(args, 'fu_forget_lr', 0.001))
+    lambda_reversal = float(getattr(args, 'fu_lambda_reversal', 0.3))
     return reversal_forget.forget_with_gradient_reversal_optimized(
-        global_model, clients, target_client_id, pre_accuracies=pre_accuracies
+        global_model,
+        clients,
+        target_client_id,
+        epochs=forget_epochs,
+        lr=forget_lr,
+        lambda_reversal=lambda_reversal,
+        pre_accuracies=pre_accuracies,
     )
 
 def forget_client_wrapper(global_model, clients, args, target_client_id=0):

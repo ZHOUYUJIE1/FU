@@ -8,12 +8,29 @@ from os import path
 from scipy.io import loadmat
 from PIL import Image
 from torch.utils.data import DataLoader
+from pathlib import Path
+import zipfile
+import requests
+import re
+import py7zr
 
 
 # https://github.com/FengHZ/KD3A/blob/master/datasets/DigitFive.py
+def _resolve_data_file(base_path, filename):
+    direct_path = path.join(base_path, filename)
+    if path.exists(direct_path):
+        return direct_path
+
+    matches = list(Path(base_path).rglob(filename))
+    if matches:
+        return str(matches[0])
+
+    raise FileNotFoundError(f"Cannot find required file '{filename}' under '{base_path}'")
+
+
 def load_mnist(base_path):
     print("load mnist")
-    mnist_data = loadmat(path.join(base_path, "mnist_data.mat"))
+    mnist_data = loadmat(_resolve_data_file(base_path, "mnist_data.mat"))
     mnist_train = np.reshape(mnist_data['train_32'], (55000, 32, 32, 1))
     mnist_test = np.reshape(mnist_data['test_32'], (10000, 32, 32, 1))
     # turn to the 3 channel image with C*H*W
@@ -40,7 +57,7 @@ def load_mnist(base_path):
 
 def load_mnist_m(base_path):
     print("load mnist_m")
-    mnistm_data = loadmat(path.join(base_path, "mnistm_with_label.mat"))
+    mnistm_data = loadmat(_resolve_data_file(base_path, "mnistm_with_label.mat"))
     mnistm_train = mnistm_data['train']
     mnistm_test = mnistm_data['test']
     mnistm_train = mnistm_train.transpose(0, 3, 1, 2).astype(np.float32)
@@ -63,8 +80,8 @@ def load_mnist_m(base_path):
 
 def load_svhn(base_path):
     print("load svhn")
-    svhn_train_data = loadmat(path.join(base_path, "svhn_train_32x32.mat"))
-    svhn_test_data = loadmat(path.join(base_path, "svhn_test_32x32.mat"))
+    svhn_train_data = loadmat(_resolve_data_file(base_path, "svhn_train_32x32.mat"))
+    svhn_test_data = loadmat(_resolve_data_file(base_path, "svhn_test_32x32.mat"))
     svhn_train = svhn_train_data['X']
     svhn_train = svhn_train.transpose(3, 2, 0, 1).astype(np.float32)
     svhn_test = svhn_test_data['X']
@@ -85,8 +102,8 @@ def load_svhn(base_path):
 
 def load_syn(base_path):
     print("load syn")
-    syn_train_data = loadmat(path.join(base_path, "synth_train_32x32.mat"))
-    syn_test_data = loadmat(path.join(base_path, "synth_test_32x32.mat"))
+    syn_train_data = loadmat(_resolve_data_file(base_path, "synth_train_32x32.mat"))
+    syn_test_data = loadmat(_resolve_data_file(base_path, "synth_test_32x32.mat"))
     syn_train = syn_train_data["X"]
     syn_test = syn_test_data["X"]
     syn_train = syn_train.transpose(3, 2, 0, 1).astype(np.float32)
@@ -104,7 +121,7 @@ def load_syn(base_path):
 
 def load_usps(base_path):
     print("load usps")
-    usps_dataset = loadmat(path.join(base_path, "usps_28x28.mat"))
+    usps_dataset = loadmat(_resolve_data_file(base_path, "usps_28x28.mat"))
     usps_dataset = usps_dataset["dataset"]
     usps_train = usps_dataset[0][0]
     train_label = usps_dataset[0][1]
@@ -186,6 +203,92 @@ np.random.seed(1)
 data_path = "Digit5/"
 dir_path = "Digit5/"
 
+
+def _download_from_google_drive(file_id, archive_path):
+    base_url = "https://drive.google.com/uc"
+    session = requests.Session()
+    params = {"export": "download", "id": file_id}
+
+    first = session.get(base_url, params=params, timeout=60)
+    first.raise_for_status()
+
+    download_url = first.url
+    download_params = None
+    content_type = (first.headers.get("Content-Type") or "").lower()
+
+    if "text/html" in content_type:
+        html = first.text
+        form_match = re.search(
+            r'<form id="download-form" action="([^"]+)" method="get">(.*?)</form>',
+            html,
+            flags=re.S,
+        )
+        if not form_match:
+            return False
+        download_url = form_match.group(1)
+        form_html = form_match.group(2)
+        hidden_inputs = dict(re.findall(r'name="([^"]+)" value="([^"]*)"', form_html))
+        if "id" not in hidden_inputs:
+            hidden_inputs["id"] = file_id
+        hidden_inputs.setdefault("export", "download")
+        download_params = hidden_inputs
+
+    response = session.get(download_url, params=download_params, stream=True, timeout=60)
+    response.raise_for_status()
+
+    tmp_path = archive_path + ".tmp"
+    with open(tmp_path, "wb") as f:
+        for chunk in response.iter_content(chunk_size=1024 * 1024):
+            if chunk:
+                f.write(chunk)
+
+    if not (_detect_archive_format(tmp_path) in {"zip", "7z"}):
+        os.remove(tmp_path)
+        return False
+
+    os.replace(tmp_path, archive_path)
+    return True
+
+
+def _detect_archive_format(archive_path):
+    if zipfile.is_zipfile(archive_path):
+        return "zip"
+    try:
+        with open(archive_path, "rb") as f:
+            if f.read(6) == b"7z\xbc\xaf\x27\x1c":
+                return "7z"
+    except OSError:
+        return None
+    try:
+        if py7zr.is_7zfile(archive_path):
+            return "7z"
+    except Exception:
+        return None
+    return None
+
+
+def _download_digit5_archive(archive_path):
+    # Original ID is deprecated in some mirrors; the second one is from KD3A README.
+    candidate_ids = [
+        "1PT6K-_wmsUEUCxoYzDy0mxF-15tvb2Eu",
+        "1QvC6mDVN25VArmTuSHqgd7Cf9CoiHvVt",
+    ]
+
+    for file_id in candidate_ids:
+        try:
+            print(f"Downloading Digit5 archive from Google Drive file id: {file_id}")
+            if _download_from_google_drive(file_id, archive_path):
+                return
+            print(f"Downloaded file from id={file_id} is not a valid archive.")
+        except Exception as exc:
+            print(f"Download failed for id={file_id}: {exc}")
+
+    raise RuntimeError(
+        "Failed to download a valid Digit5.zip archive automatically. "
+        f"Please place Digit5.zip under {path.dirname(archive_path)} manually."
+    )
+
+
 # Allocate data to usersz``
 def generate_dataset(dir_path):
     if not os.path.exists(dir_path):
@@ -206,9 +309,21 @@ def generate_dataset(dir_path):
     # Get Digit5 data
     if not os.path.exists(root):
         os.makedirs(root)
-        # If 404, use this new link: https://drive.google.com/file/d/1sO2PisChNPVT0CnOvIgGJkxdEosCwMUb/view
-        os.system(f'wget https://drive.google.com/u/0/uc?id=1PT6K-_wmsUEUCxoYzDy0mxF-15tvb2Eu&export=download -P {root}')
-        os.system(f'unzip {root}/Digit5.zip -d {root}')
+    archive_path = path.join(root, "Digit5.zip")
+    required_file = path.join(root, "mnistm_with_label.mat")
+    if not path.exists(required_file):
+        archive_format = _detect_archive_format(archive_path) if path.exists(archive_path) else None
+        if archive_format is None:
+            _download_digit5_archive(archive_path)
+            archive_format = _detect_archive_format(archive_path)
+        if archive_format == "zip":
+            with zipfile.ZipFile(archive_path, "r") as zf:
+                zf.extractall(root)
+        elif archive_format == "7z":
+            with py7zr.SevenZipFile(archive_path, "r") as zf:
+                zf.extractall(path=root)
+        else:
+            raise RuntimeError(f"Unsupported Digit5 archive format: {archive_path}")
 
     X, y = [], []
     domains = ['mnistm', 'mnist', 'syn', 'usps', 'svhn']

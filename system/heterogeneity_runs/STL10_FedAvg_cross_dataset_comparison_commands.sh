@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /home/siguangchen/zyj/FUcopy1
+
+env -u LD_LIBRARY_PATH /home/siguangchen/anaconda3/envs/zyj/bin/python -u system/main.py --device cpu --dataset STL10_crossds_severe --model MLR --batch_size 64 --global_rounds 1 --num_clients 2 --result_tag fu_severe --forget_strategy gradient_reversal --max_batches 2 --num_processes 1 --target_client_id 1
+env -u LD_LIBRARY_PATH /home/siguangchen/anaconda3/envs/zyj/bin/python -u system/main.py --device cpu --dataset STL10_crossds_severe --model MLR --batch_size 64 --global_rounds 1 --num_clients 2 --result_tag fedau_severe --forget_strategy fedau --max_batches 2 --num_processes 1 --target_client_id 1
+env -u LD_LIBRARY_PATH /home/siguangchen/anaconda3/envs/zyj/bin/python -u system/main.py --device cpu --dataset STL10_crossds_severe --model MLR --batch_size 64 --global_rounds 1 --num_clients 2 --result_tag fedcsa_severe --forget_strategy fedcsa --max_batches 2 --num_processes 1 --target_client_id 1 --load_saved_model true --saved_model_path /home/siguangchen/zyj/FUcopy1/results/exp_configs/global_model_STL10_crossds_severe_FedAvg_test_1_fu_severe.pt
+env -u LD_LIBRARY_PATH /home/siguangchen/anaconda3/envs/zyj/bin/python -u system/main.py --device cpu --dataset STL10_crossds_severe --model MLR --batch_size 64 --global_rounds 1 --num_clients 2 --result_tag fedosd_severe --forget_strategy fedosd --max_batches 2 --num_processes 1 --target_client_id 1 --load_saved_model true --saved_model_path /home/siguangchen/zyj/FUcopy1/results/exp_configs/global_model_STL10_crossds_severe_FedAvg_test_1_fu_severe.pt
+env -u LD_LIBRARY_PATH /home/siguangchen/anaconda3/envs/zyj/bin/python -u system/main.py --device cpu --dataset STL10_crossds_severe --model MLR --batch_size 64 --global_rounds 1 --num_clients 2 --result_tag retrain_severe --forget_strategy gradient_reversal --max_batches 2 --num_processes 1 --target_client_id 1 --retrain_only true

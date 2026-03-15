@@ -15,7 +15,7 @@ dir_path = "GTSRB/"
 
 
 # Allocate data to users
-def generate_dataset(dir_path, num_clients, niid, balance, partition):
+def generate_dataset(dir_path, num_clients, niid, balance, partition, class_per_client=4):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
         
@@ -24,7 +24,17 @@ def generate_dataset(dir_path, num_clients, niid, balance, partition):
     train_path = dir_path + "train/"
     test_path = dir_path + "test/"
 
-    if check(config_path, train_path, test_path, num_clients, niid, balance, partition):
+    effective_class_per_client = class_per_client if partition in ("pat", "exdir") else None
+    if check(
+        config_path,
+        train_path,
+        test_path,
+        num_clients,
+        niid,
+        balance,
+        partition,
+        class_per_client=effective_class_per_client,
+    ):
         return
 
     dataset_image = []
@@ -34,7 +44,7 @@ def generate_dataset(dir_path, num_clients, niid, balance, partition):
     transform = transforms.Compose(
         [transforms.Resize((32, 32)), 
         transforms.ToTensor(), 
-        transforms.Normalize((0.5), (0.5))]
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
     )
 
     def load_data(split="train"):
@@ -57,10 +67,10 @@ def generate_dataset(dir_path, num_clients, niid, balance, partition):
     print(f'Number of classes: {num_classes}')
 
     X, y, statistic = separate_data((dataset_image, dataset_label), num_clients, num_classes, 
-                                    niid, balance, partition, class_per_client=4)
+                                    niid, balance, partition, class_per_client=class_per_client)
     train_data, test_data = split_data(X, y)
     save_file(config_path, train_path, test_path, train_data, test_data, num_clients, num_classes, 
-        statistic, niid, balance, partition)
+        statistic, niid, balance, partition, class_per_client=effective_class_per_client)
 
 
 if __name__ == "__main__":

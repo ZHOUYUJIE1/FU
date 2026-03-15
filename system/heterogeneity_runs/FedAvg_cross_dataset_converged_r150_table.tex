@@ -1,0 +1,22 @@
+\begin{table*}[t]
+\centering
+\caption{Cross-dataset federated unlearning results under severe Dirichlet heterogeneity. Higher final average accuracy indicates better utility retention, while lower target accuracy, post-unlearning MIA AUC, and post-backdoor accuracy indicate stronger forgetting.}
+\label{tab:cross_dataset_results}
+\begin{tabular}{llccccc}
+\toprule
+Dataset & Method & Final Avg. Acc. $\uparrow$ & Target Acc. $\downarrow$ & Retain Avg. Acc. $\uparrow$ & Post MIA AUC $\downarrow$ & Post Backdoor Acc. $\downarrow$ \\
+\midrule
+STL-10 & FU & 0.3377 & 0.0788 & 0.3664 & 0.4855 & 0.1364 \\
+ & FedAU & 0.3147 & 0.1121 & 0.3372 & 0.4788 & 0.1545 \\
+ & FedCSA & 0.3412 & 0.1879 & 0.3582 & 0.5131 & 0.2333 \\
+ & FedOSD & 0.3167 & 0.1121 & 0.3394 & 0.4583 & 0.1121 \\
+ & Retrain & 0.3175 & 0.0030 & 0.3525 & 0.4959 & 0.1545 \\
+\midrule
+Tiny-ImageNet & FU & 0.1369 & 0.0110 & 0.1509 & 0.5208 & 0.0208 \\
+ & FedAU & 0.1682 & 0.0623 & 0.1800 & 0.5124 & 0.0885 \\
+ & FedCSA & 0.1634 & 0.0753 & 0.1732 & 0.5100 & 0.0911 \\
+ & FedOSD & 0.1136 & 0.0193 & 0.1241 & 0.5134 & 0.0365 \\
+ & Retrain & 0.1627 & 0.0000 & 0.1807 & 0.5100 & 0.0807 \\
+\bottomrule
+\end{tabular}
+\end{table*}

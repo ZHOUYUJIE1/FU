@@ -30,6 +30,21 @@ def _one_hot_cross_entropy(probabilities, labels):
     return -(labels * probabilities.log()).sum(dim=1).mean()
 
 
+class _FedAUTargetDataset(torch.utils.data.Dataset):
+    def __init__(self, data, transform=None):
+        self.data = data
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        x, y, wrong_y = self.data[idx]
+        if self.transform is not None:
+            x = self.transform(x)
+        return x, y, wrong_y
+
+
 class _FedAUMixin:
     def _init_fedau(self, args):
         self.is_target_client = self.id == getattr(args, "target_client_id", -1)
@@ -38,7 +53,9 @@ class _FedAUMixin:
         self._fedau_seed = int(getattr(args, "random_seed", 0)) * 1000 + int(self.id)
         self._fedau_target_train_data = None
 
-    def _sync_non_local_state(self, model, copy_buffers=False):
+    def _sync_non_local_state(self, model, copy_buffers=None):
+        if copy_buffers is None:
+            copy_buffers = self.sync_full_state
         source_state = model.state_dict()
         target_state = self.model.state_dict()
 
@@ -66,7 +83,7 @@ class _FedAUMixin:
 
     def _build_target_train_loader(self):
         if not self.is_target_client:
-            return self.load_train_data()
+            return self.load_train_data(augment=self.train_data_augmentation)
         if self._fedau_target_train_data is None:
             base_data = read_client_data(
                 self.dataset,
@@ -84,10 +101,14 @@ class _FedAUMixin:
                 (x, y, wrong_y)
                 for (x, y), wrong_y in zip(base_data, fixed_wrong_labels)
             ]
-        return DataLoader(
+        dataset = _FedAUTargetDataset(
             self._fedau_target_train_data,
+            transform=self.train_transform if self.train_data_augmentation else None,
+        )
+        return DataLoader(
+            dataset,
             self.batch_size,
-            drop_last=True,
+            drop_last=False,
             shuffle=True,
         )
 
@@ -136,7 +157,7 @@ class clientFedAUAVG(_FedAUMixin, clientAVG):
         super().__init__(args, id, train_samples, test_samples, **kwargs)
         self._init_fedau(args)
 
-    def set_parameters(self, model, copy_buffers=False):
+    def set_parameters(self, model, copy_buffers=None):
         self._sync_non_local_state(model, copy_buffers=copy_buffers)
 
     def train(self):
@@ -180,7 +201,7 @@ class clientFEDAUSCAFFOLD(_FedAUMixin, clientSCAFFOLD):
         super().__init__(args, id, train_samples, test_samples, **kwargs)
         self._init_fedau(args)
 
-    def set_parameters(self, model, global_c=None, copy_buffers=False):
+    def set_parameters(self, model, global_c=None, copy_buffers=None):
         self._sync_non_local_state(model, copy_buffers=copy_buffers)
         if global_c is not None:
             self.global_c = global_c

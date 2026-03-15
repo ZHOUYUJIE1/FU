@@ -73,6 +73,30 @@ def str2bool(value):
     raise argparse.ArgumentTypeError(f"Invalid boolean value: {value}")
 
 
+def adapt_resnet_for_small_images(model):
+    """Use a CIFAR-style stem for 32x32 image datasets."""
+    if not hasattr(model, "conv1") or not hasattr(model, "maxpool"):
+        return model
+    if not isinstance(model.conv1, nn.Conv2d):
+        return model
+    if model.conv1.kernel_size == (3, 3) and model.conv1.stride == (1, 1):
+        return model
+
+    conv1 = model.conv1
+    new_conv = nn.Conv2d(
+        conv1.in_channels,
+        conv1.out_channels,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+    ).to(conv1.weight.device)
+    nn.init.kaiming_normal_(new_conv.weight, mode='fan_out', nonlinearity='relu')
+    model.conv1 = new_conv
+    model.maxpool = nn.Identity()
+    return model
+
+
 def set_global_seed(seed):
     """设置全局随机种子以确保实验可重现"""
     torch.manual_seed(seed)
@@ -147,6 +171,13 @@ def save_experiment_config(args, seed):
         "vocab_size": args.vocab_size,
         "max_len": args.max_len,
         "few_shot": args.few_shot,
+        "sync_client_buffers": getattr(args, "sync_client_buffers", None),
+        "aggregate_float_buffers": getattr(args, "aggregate_float_buffers", None),
+        "train_data_augmentation": getattr(args, "train_data_augmentation", None),
+        "optimizer_momentum": getattr(args, "optimizer_momentum", None),
+        "weight_decay": getattr(args, "weight_decay", None),
+        "optimizer_nesterov": getattr(args, "optimizer_nesterov", None),
+        "small_image_resnet_stem": getattr(args, "small_image_resnet_stem", None),
         "client_drop_rate": args.client_drop_rate,
         "train_slow_rate": args.train_slow_rate,
         "send_slow_rate": args.send_slow_rate,
@@ -174,9 +205,29 @@ def save_experiment_config(args, seed):
         "fu_retain_calibration_batches": getattr(args, "fu_retain_calibration_batches", None),
         "fu_mask_retain_scale": getattr(args, "fu_mask_retain_scale", None),
         "fu_similarity_boost": getattr(args, "fu_similarity_boost", None),
+        "fu_retain_gradient_scale": getattr(args, "fu_retain_gradient_scale", None),
+        "fu_mask_top_ratio": getattr(args, "fu_mask_top_ratio", None),
+        "fu_reference_client_count": getattr(args, "fu_reference_client_count", None),
+        "fu_exclusive_mask_beta": getattr(args, "fu_exclusive_mask_beta", None),
+        "fu_gradient_balance_target": getattr(args, "fu_gradient_balance_target", None),
+        "fu_forget_epochs": getattr(args, "fu_forget_epochs", None),
+        "fu_forget_lr": getattr(args, "fu_forget_lr", None),
+        "fu_lambda_reversal": getattr(args, "fu_lambda_reversal", None),
+        "fu_use_knowledge_anchoring": getattr(args, "fu_use_knowledge_anchoring", None),
+        "fu_anchor_weight": getattr(args, "fu_anchor_weight", None),
+        "fu_anchor_sample_ratio": getattr(args, "fu_anchor_sample_ratio", None),
+        "fu_anchor_start_epoch": getattr(args, "fu_anchor_start_epoch", None),
+        "fu_use_selective_anchoring": getattr(args, "fu_use_selective_anchoring", None),
+        "fu_selective_protection_threshold": getattr(args, "fu_selective_protection_threshold", None),
+        "fu_use_progressive_weight": getattr(args, "fu_use_progressive_weight", None),
+        "fu_use_forget_compensation": getattr(args, "fu_use_forget_compensation", None),
+        "fu_use_intelligent_gradient": getattr(args, "fu_use_intelligent_gradient", None),
         "fu_select_best_recovery": getattr(args, "fu_select_best_recovery", None),
         "fu_recovery_target_penalty": getattr(args, "fu_recovery_target_penalty", None),
         "fu_recovery_lr_scale": getattr(args, "fu_recovery_lr_scale", None),
+        "fu_recovery_mask_scale": getattr(args, "fu_recovery_mask_scale", None),
+        "fu_recovery_anti_revival_strength": getattr(args, "fu_recovery_anti_revival_strength", None),
+        "fu_recovery_max_target_increase": getattr(args, "fu_recovery_max_target_increase", None),
         "protection_level": getattr(args, "protection_level", None)
     }
     
@@ -460,6 +511,7 @@ def select_best_fu_recovery_candidate(server, args, post_accs, post_eval_metrics
         return None
 
     target_penalty = float(getattr(args, "fu_recovery_target_penalty", 1.0))
+    max_target_increase = float(getattr(args, "fu_recovery_max_target_increase", -1.0))
     post_target_acc, post_retain_avg_acc = compute_target_and_retain_metrics(post_accs, args.target_client_id)
 
     best_candidate = {
@@ -488,6 +540,13 @@ def select_best_fu_recovery_candidate(server, args, post_accs, post_eval_metrics
             server=server,
         )
         target_acc, retain_avg_acc = compute_target_and_retain_metrics(accs, args.target_client_id)
+        target_increase = target_acc - post_target_acc
+        if max_target_increase >= 0.0 and target_increase > max_target_increase:
+            print(
+                f"FU恢复候选第{result['round']}轮跳过: "
+                f"target_acc增加 {target_increase:.4f} 超过阈值 {max_target_increase:.4f}"
+            )
+            continue
         score = retain_avg_acc - target_penalty * target_acc
         print(
             f"FU恢复候选第{result['round']}轮: avg_acc={avg_acc:.4f}, "
@@ -517,37 +576,63 @@ def apply_forgetting_result_side_effects(forget_result, server, args):
 
 
 def build_base_model(args, model_str):
+    dataset_name = args.dataset
+
+    is_mnist_like = "MNIST" in dataset_name
+    is_cifar_like = "Cifar" in dataset_name
+    is_rgb_32 = any(tag in dataset_name for tag in ("GTSRB", "CINIC10", "CINIC-10"))
+    is_stl10 = "STL10" in dataset_name
+    is_tiny_imagenet = any(tag in dataset_name for tag in ("TinyImagenet", "Tiny-ImageNet"))
+
     if model_str == "MLR":  # convex
-        if "MNIST" in args.dataset:
+        if is_mnist_like:
             model = Mclr_Logistic(1 * 28 * 28, num_classes=args.num_classes).to(args.device)
-        elif "Cifar10" in args.dataset:
+        elif is_cifar_like or is_rgb_32:
             model = Mclr_Logistic(3 * 32 * 32, num_classes=args.num_classes).to(args.device)
+        elif is_stl10:
+            model = Mclr_Logistic(3 * 96 * 96, num_classes=args.num_classes).to(args.device)
+        elif is_tiny_imagenet:
+            model = Mclr_Logistic(3 * 64 * 64, num_classes=args.num_classes).to(args.device)
         else:
             model = Mclr_Logistic(60, num_classes=args.num_classes).to(args.device)
     elif model_str == "CNN":  # non-convex
-        if "MNIST" in args.dataset:
+        if is_mnist_like:
             model = FedAvgCNN(in_features=1, num_classes=args.num_classes, dim=1024).to(args.device)
-        elif "Cifar10" in args.dataset:
+        elif is_cifar_like or is_rgb_32:
             model = FedAvgCNN(in_features=3, num_classes=args.num_classes, dim=1600).to(args.device)
-        elif "Omniglot" in args.dataset:
+        elif is_stl10:
+            model = FedAvgCNN(in_features=3, num_classes=args.num_classes, dim=28224).to(args.device)
+        elif "Omniglot" in dataset_name:
             model = FedAvgCNN(in_features=1, num_classes=args.num_classes, dim=33856).to(args.device)
-        elif "Digit5" in args.dataset:
+        elif "Digit5" in dataset_name:
             model = Digit5CNN().to(args.device)
+        elif is_tiny_imagenet:
+            model = FedAvgCNN(in_features=3, num_classes=args.num_classes, dim=10816).to(args.device)
         else:
             model = FedAvgCNN(in_features=3, num_classes=args.num_classes, dim=10816).to(args.device)
     elif model_str == "DNN":  # non-convex
-        if "MNIST" in args.dataset:
+        if is_mnist_like:
             model = DNN(1 * 28 * 28, 100, num_classes=args.num_classes).to(args.device)
-        elif "Cifar10" in args.dataset:
+        elif is_cifar_like or is_rgb_32:
             model = DNN(3 * 32 * 32, 100, num_classes=args.num_classes).to(args.device)
+        elif is_stl10:
+            model = DNN(3 * 96 * 96, 100, num_classes=args.num_classes).to(args.device)
+        elif is_tiny_imagenet:
+            model = DNN(3 * 64 * 64, 100, num_classes=args.num_classes).to(args.device)
         else:
             model = DNN(60, 20, num_classes=args.num_classes).to(args.device)
     elif model_str == "ResNet18":
         model = torchvision.models.resnet18(pretrained=False, num_classes=args.num_classes).to(args.device)
+        if getattr(args, "small_image_resnet_stem", True) and (is_cifar_like or is_rgb_32):
+            model = adapt_resnet_for_small_images(model)
     elif model_str == "ResNet10":
         model = resnet10(num_classes=args.num_classes).to(args.device)
+        if getattr(args, "small_image_resnet_stem", True) and (is_cifar_like or is_rgb_32):
+            model = adapt_resnet_for_small_images(model)
     elif model_str == "ResNet34":
         model = torchvision.models.resnet34(pretrained=False, num_classes=args.num_classes).to(args.device)
+        if getattr(args, "small_image_resnet_stem", True) and (is_cifar_like or is_rgb_32):
+            model = adapt_resnet_for_small_images(model)
     elif model_str == "AlexNet":
         model = alexnet(pretrained=False, num_classes=args.num_classes).to(args.device)
     elif model_str == "GoogleNet":
@@ -668,11 +753,14 @@ def evaluate_on_all_clients(global_model, clients, stage_name="评估", server=N
         # 设置客户端模型为全局模型
         # 对于SCAFFOLD，需要传递global_c（评估时可以为None）
         if hasattr(client, 'set_parameters'):
+            copy_buffers = getattr(server, "sync_client_buffers", None) if server is not None else None
             if server is not None and hasattr(server, 'global_c'):
                 # SCAFFOLD需要global_c参数
-                client.set_parameters(global_model, global_c=server.global_c)
-            else:
+                client.set_parameters(global_model, global_c=server.global_c, copy_buffers=copy_buffers)
+            elif copy_buffers is None:
                 client.set_parameters(global_model)
+            else:
+                client.set_parameters(global_model, copy_buffers=copy_buffers)
         else:
             client.model = copy.deepcopy(global_model)
         
@@ -1051,6 +1139,7 @@ def run(args):
             method_recovery_results = list(forget_result.get("recovery_results", []))
             method_recovery_rounds = int(forget_result.get("recovery_rounds", 0) or 0)
             method_recovery_stage = forget_result.get("recovery_stage")
+            method_recovery_context = forget_result.get("recovery_context") or {}
             method_post_recovery_model = forget_result.get("post_recovery_model")
             method_post_recovery_client_buffer_states = forget_result.get("post_recovery_client_buffer_states")
             
@@ -1158,12 +1247,18 @@ def run(args):
                     args.forget_strategy == "gradient_reversal"
                     and getattr(args, "fu_select_best_recovery", True)
                 )
+                recovery_mask = method_recovery_context.get("forget_mask") if args.forget_strategy == "gradient_reversal" else None
+                recovery_target_gradients = method_recovery_context.get("target_gradients") if args.forget_strategy == "gradient_reversal" else None
                 post_forget_snapshot = capture_server_recovery_snapshot(server)
                 recovery_results = server.recovery_training(
                     target_client_id=args.target_client_id,
                     recovery_rounds=recovery_rounds,
                     capture_snapshots=use_fu_adaptive_recovery,
                     lr_scale=getattr(args, "fu_recovery_lr_scale", 1.0),
+                    anti_revival_mask=recovery_mask,
+                    anti_revival_target_gradients=recovery_target_gradients,
+                    anti_revival_mask_scale=getattr(args, "fu_recovery_mask_scale", 1.0),
+                    anti_revival_strength=getattr(args, "fu_recovery_anti_revival_strength", 0.0),
                 )
 
                 if use_fu_adaptive_recovery:
@@ -1486,6 +1581,7 @@ def run(args):
         method_recovery_results = list(forget_result.get("recovery_results", []))
         method_recovery_rounds = int(forget_result.get("recovery_rounds", 0) or 0)
         method_recovery_stage = forget_result.get("recovery_stage")
+        method_recovery_context = forget_result.get("recovery_context") or {}
         method_post_recovery_model = forget_result.get("post_recovery_model")
         method_post_recovery_client_buffer_states = forget_result.get("post_recovery_client_buffer_states")
         
@@ -1593,12 +1689,18 @@ def run(args):
                 args.forget_strategy == "gradient_reversal"
                 and getattr(args, "fu_select_best_recovery", True)
             )
+            recovery_mask = method_recovery_context.get("forget_mask") if args.forget_strategy == "gradient_reversal" else None
+            recovery_target_gradients = method_recovery_context.get("target_gradients") if args.forget_strategy == "gradient_reversal" else None
             post_forget_snapshot = capture_server_recovery_snapshot(server)
             recovery_results = server.recovery_training(
                 target_client_id=args.target_client_id,
                 recovery_rounds=recovery_rounds,
                 capture_snapshots=use_fu_adaptive_recovery,
                 lr_scale=getattr(args, "fu_recovery_lr_scale", 1.0),
+                anti_revival_mask=recovery_mask,
+                anti_revival_target_gradients=recovery_target_gradients,
+                anti_revival_mask_scale=getattr(args, "fu_recovery_mask_scale", 1.0),
+                anti_revival_strength=getattr(args, "fu_recovery_anti_revival_strength", 0.0),
             )
 
             if use_fu_adaptive_recovery:
@@ -1753,6 +1855,12 @@ if __name__ == "__main__":
     parser.add_argument('-lbs', "--batch_size", type=int, default=32)
     parser.add_argument('-lr', "--local_learning_rate", type=float, default=0.005,
                         help="Local learning rate")
+    parser.add_argument('--optimizer_momentum', type=float, default=0.9,
+                        help="Momentum used by SGD on vision tasks")
+    parser.add_argument('--weight_decay', type=float, default=5e-4,
+                        help="Weight decay used by SGD on vision tasks")
+    parser.add_argument('--optimizer_nesterov', type=str2bool, default=True,
+                        help="Enable Nesterov momentum on vision tasks")
     parser.add_argument('-ld', "--learning_rate_decay", type=str2bool, default=False)
     parser.add_argument('-ldg', "--learning_rate_decay_gamma", type=float, default=0.99)
     parser.add_argument('-gr', "--global_rounds", type=int, default=100)
@@ -1786,6 +1894,14 @@ if __name__ == "__main__":
                         help="Set this for text tasks. 80 for Shakespeare. 32000 for AG_News and SogouNews.")
     parser.add_argument('-ml', "--max_len", type=int, default=200)
     parser.add_argument('-fs', "--few_shot", type=int, default=0)
+    parser.add_argument('--sync_client_buffers', type=str2bool, default=True,
+                        help="Synchronize the full client model state, including BatchNorm buffers")
+    parser.add_argument('--aggregate_float_buffers', type=str2bool, default=True,
+                        help="Aggregate floating-point buffers such as BatchNorm running stats")
+    parser.add_argument('--train_data_augmentation', type=str2bool, default=True,
+                        help="Enable online data augmentation for natural-image federated training")
+    parser.add_argument('--small_image_resnet_stem', type=str2bool, default=True,
+                        help="Replace the ImageNet ResNet stem with a 3x3 stem on 32x32 datasets")
     # practical
     parser.add_argument('-cdr', "--client_drop_rate", type=float, default=0.0,
                         help="Rate for clients that train but drop out")
@@ -1925,12 +2041,52 @@ if __name__ == "__main__":
                         help="Gradient scale kept on FU forget-mask parameters during retain calibration")
     parser.add_argument('--fu_similarity_boost', type=float, default=1.2,
                         help="Protection weight boost for retain clients close to the target client")
+    parser.add_argument('--fu_retain_gradient_scale', type=float, default=1.0,
+                        help="Extra scale applied to retain-client gradients inside FU")
+    parser.add_argument('--fu_mask_top_ratio', type=float, default=0.1,
+                        help="Initial top-ratio used when building the FU forget mask")
+    parser.add_argument('--fu_reference_client_count', type=int, default=4,
+                        help="Number of nearby retain clients used as shared-reference clients for the FU forget mask")
+    parser.add_argument('--fu_exclusive_mask_beta', type=float, default=1.0,
+                        help="Penalty factor applied to shared-reference gradients when building the FU exclusive mask")
+    parser.add_argument('--fu_gradient_balance_target', type=float, default=1.5,
+                        help="Upper bound ratio between retain-gradient norm and forget-gradient norm inside FU")
+    parser.add_argument('--fu_forget_epochs', type=int, default=10,
+                        help="Number of inner FU gradient-reversal epochs")
+    parser.add_argument('--fu_forget_lr', type=float, default=1e-3,
+                        help="Learning rate used inside FU gradient-reversal forgetting")
+    parser.add_argument('--fu_lambda_reversal', type=float, default=0.3,
+                        help="Base reversal strength used inside FU gradient-reversal forgetting")
+    parser.add_argument('--fu_use_knowledge_anchoring', type=str2bool, default=True,
+                        help="Enable knowledge anchoring during FU forgetting")
+    parser.add_argument('--fu_anchor_weight', type=float, default=0.5,
+                        help="Base anchor-loss weight used by FU")
+    parser.add_argument('--fu_anchor_sample_ratio', type=float, default=0.1,
+                        help="Anchor-data sampling ratio used by FU")
+    parser.add_argument('--fu_anchor_start_epoch', type=int, default=0,
+                        help="First FU forgetting epoch that enables anchoring")
+    parser.add_argument('--fu_use_selective_anchoring', type=str2bool, default=True,
+                        help="Enable selective protection for FU knowledge anchoring")
+    parser.add_argument('--fu_selective_protection_threshold', type=float, default=0.6,
+                        help="Distance threshold used by FU selective anchoring")
+    parser.add_argument('--fu_use_progressive_weight', type=str2bool, default=True,
+                        help="Enable FU progressive anchor weighting")
+    parser.add_argument('--fu_use_forget_compensation', type=str2bool, default=True,
+                        help="Enable FU compensation that offsets stronger protection")
+    parser.add_argument('--fu_use_intelligent_gradient', type=str2bool, default=True,
+                        help="Enable FU intelligent gradient combination")
     parser.add_argument('--fu_select_best_recovery', type=str2bool, default=True,
                         help="Whether to select the best FU recovery checkpoint instead of always taking the last recovery round")
-    parser.add_argument('--fu_recovery_target_penalty', type=float, default=0.5,
+    parser.add_argument('--fu_recovery_target_penalty', type=float, default=1.5,
                         help="Penalty weight for target-client accuracy when selecting the best FU recovery checkpoint")
-    parser.add_argument('--fu_recovery_lr_scale', type=float, default=1.0,
+    parser.add_argument('--fu_recovery_lr_scale', type=float, default=0.2,
                         help="Local learning-rate scale used during FU recovery training")
+    parser.add_argument('--fu_recovery_mask_scale', type=float, default=0.2,
+                        help="Scale kept on exclusive-mask parameters during FU recovery training")
+    parser.add_argument('--fu_recovery_anti_revival_strength', type=float, default=1.0,
+                        help="Projection-removal strength used to suppress target-gradient revival during FU recovery")
+    parser.add_argument('--fu_recovery_max_target_increase', type=float, default=0.03,
+                        help="Maximum allowed target-client accuracy rebound above post-forget accuracy when selecting FU recovery")
     parser.add_argument('--protection_level', type=str, default='weak',
                         choices=['strong', 'moderate', 'weak'],
                         help="Protection strength for retain clients inside FU")

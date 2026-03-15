@@ -94,7 +94,11 @@ class SCAFFOLD(Server):
         for client in self.clients:
             start_time = time.time()
             
-            client.set_parameters(self.global_model, self.global_c)
+            client.set_parameters(
+                self.global_model,
+                self.global_c,
+                copy_buffers=self.sync_client_buffers,
+            )
 
             client.send_time_cost['num_rounds'] += 1
             client.send_time_cost['total_cost'] += 2 * (time.time() - start_time)
@@ -233,7 +237,17 @@ class SCAFFOLD(Server):
             snapshot["client_local_param_states"] = client_local_param_states
         return snapshot
 
-    def recovery_training(self, target_client_id, recovery_rounds=5, capture_snapshots=False, lr_scale=1.0):
+    def recovery_training(
+        self,
+        target_client_id,
+        recovery_rounds=5,
+        capture_snapshots=False,
+        lr_scale=1.0,
+        anti_revival_mask=None,
+        anti_revival_target_gradients=None,
+        anti_revival_mask_scale=1.0,
+        anti_revival_strength=0.0,
+    ):
         """
         恢复阶段训练：排除目标客户端，使用其他客户端数据进行训练
         
@@ -247,6 +261,11 @@ class SCAFFOLD(Server):
         print(f"排除目标客户端: {target_client_id}")
         print(f"恢复训练轮数: {recovery_rounds}")
         print(f"恢复阶段学习率缩放: {lr_scale}")
+        if anti_revival_mask is not None:
+            print(
+                f"恢复anti-revival已启用: mask_scale={anti_revival_mask_scale}, "
+                f"strength={anti_revival_strength}"
+            )
         
         # 设置排除的客户端
         self.excluded_client_ids = [target_client_id]
@@ -297,11 +316,21 @@ class SCAFFOLD(Server):
             print(f"选中的客户端: {[c.id for c in self.selected_clients]}")
             
             # 发送模型
+            base_model_state = self._clone_state_dict(self.global_model.state_dict())
             self.send_models()
             
             # 客户端训练
             for client in self.selected_clients:
                 client.train()
+
+            self.apply_recovery_anti_revival(
+                self.selected_clients,
+                base_model_state,
+                anti_revival_mask=anti_revival_mask,
+                anti_revival_target_gradients=anti_revival_target_gradients,
+                anti_revival_mask_scale=anti_revival_mask_scale,
+                anti_revival_strength=anti_revival_strength,
+            )
             
             # 接收模型
             self.receive_models()

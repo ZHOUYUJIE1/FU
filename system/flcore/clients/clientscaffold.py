@@ -22,7 +22,7 @@ class clientSCAFFOLD(Client):
         self.global_model = None
 
     def train(self):
-        trainloader = self.load_train_data()
+        trainloader = self.load_train_data(augment=self.train_data_augmentation)
         # self.model.to(self.device)
         self.model.train()
 
@@ -59,7 +59,9 @@ class clientSCAFFOLD(Client):
         self.train_time_cost['total_cost'] += time.time() - start_time
             
         
-    def set_parameters(self, model, global_c=None, copy_buffers=False):
+    def set_parameters(self, model, global_c=None, copy_buffers=None):
+        if copy_buffers is None:
+            copy_buffers = self.sync_full_state
         if copy_buffers:
             # 仅在显式需要时同步buffer；常规联邦训练中保留客户端本地BN统计更稳定。
             self.model.load_state_dict(model.state_dict(), strict=True)

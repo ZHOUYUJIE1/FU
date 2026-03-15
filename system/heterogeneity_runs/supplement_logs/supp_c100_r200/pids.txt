@@ -1,0 +1,8 @@
+started_at=2026-03-13 10:44:39 +0800
+screen_session=c100_r200_run
+launcher_pid=1533627
+hetero_pid=1533647
+current_main_pid=1533667
+launcher_log=/home/siguangchen/zyj/FUcopy1/system/heterogeneity_runs/supplement_logs/supp_c100_r200/launcher.log
+dir_log=/home/siguangchen/zyj/FUcopy1/system/heterogeneity_runs/supplement_logs/supp_c100_r200/dir.log
+fu_log=/home/siguangchen/zyj/FUcopy1/system/heterogeneity_runs/Cifar100_supp_c100_r200_hetero_mild/fu.log

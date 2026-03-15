@@ -3,10 +3,68 @@ import torch
 import torch.nn as nn
 import numpy as np
 import os
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from sklearn.preprocessing import label_binarize
 from sklearn import metrics
+from torchvision import transforms
 from utils.data_utils import read_client_data
+
+
+_VISION_DATASET_MARKERS = (
+    "MNIST",
+    "FashionMNIST",
+    "Cifar",
+    "CINIC10",
+    "CINIC-10",
+    "STL10",
+    "GTSRB",
+    "TinyImagenet",
+    "Tiny-ImageNet",
+    "Digit5",
+    "Omniglot",
+)
+
+
+def _contains_any(dataset_name, markers):
+    return any(marker in dataset_name for marker in markers)
+
+
+def _is_vision_dataset(dataset_name):
+    return _contains_any(dataset_name, _VISION_DATASET_MARKERS)
+
+
+def _build_train_transform(dataset_name):
+    if any(tag in dataset_name for tag in ("Cifar", "CINIC10", "CINIC-10")):
+        return transforms.Compose([
+            transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
+            transforms.RandomHorizontalFlip(),
+        ])
+    if "STL10" in dataset_name:
+        return transforms.Compose([
+            transforms.RandomCrop(96, padding=12, padding_mode="reflect"),
+            transforms.RandomHorizontalFlip(),
+        ])
+    if any(tag in dataset_name for tag in ("TinyImagenet", "Tiny-ImageNet")):
+        return transforms.Compose([
+            transforms.RandomCrop(64, padding=8, padding_mode="reflect"),
+            transforms.RandomHorizontalFlip(),
+        ])
+    return None
+
+
+class _TransformDataset(Dataset):
+    def __init__(self, data, transform):
+        self.data = data
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        x, y = self.data[idx]
+        if self.transform is not None:
+            x = self.transform(x)
+        return x, y
 
 
 class Client(object):
@@ -30,6 +88,12 @@ class Client(object):
         self.learning_rate = args.local_learning_rate
         self.local_epochs = args.local_epochs
         self.few_shot = args.few_shot
+        self.sync_full_state = bool(getattr(args, "sync_client_buffers", True))
+        self.train_data_augmentation = bool(getattr(args, "train_data_augmentation", True))
+        self.optimizer_momentum = float(getattr(args, "optimizer_momentum", 0.9))
+        self.weight_decay = float(getattr(args, "weight_decay", 5e-4))
+        self.optimizer_nesterov = bool(getattr(args, "optimizer_nesterov", True))
+        self.train_transform = _build_train_transform(self.dataset) if self.train_data_augmentation else None
 
         # check BatchNorm
         self.has_BatchNorm = False
@@ -44,19 +108,31 @@ class Client(object):
         self.send_time_cost = {'num_rounds': 0, 'total_cost': 0.0}
 
         self.loss = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
+        self.optimizer = self._build_optimizer()
         self.learning_rate_scheduler = torch.optim.lr_scheduler.ExponentialLR(
             optimizer=self.optimizer, 
             gamma=args.learning_rate_decay_gamma
         )
         self.learning_rate_decay = args.learning_rate_decay
 
+    def _build_optimizer(self):
+        if _is_vision_dataset(self.dataset):
+            return torch.optim.SGD(
+                self.model.parameters(),
+                lr=self.learning_rate,
+                momentum=self.optimizer_momentum,
+                weight_decay=self.weight_decay,
+                nesterov=self.optimizer_nesterov,
+            )
+        return torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
 
-    def load_train_data(self, batch_size=None):
+    def load_train_data(self, batch_size=None, augment=False):
         if batch_size == None:
             batch_size = self.batch_size
         train_data = read_client_data(self.dataset, self.id, is_train=True, few_shot=self.few_shot)
-        return DataLoader(train_data, batch_size, drop_last=True, shuffle=True)
+        if augment and self.train_transform is not None:
+            train_data = _TransformDataset(train_data, self.train_transform)
+        return DataLoader(train_data, batch_size, drop_last=False, shuffle=True)
 
     def load_test_data(self, batch_size=None):
         if batch_size == None:
@@ -65,8 +141,10 @@ class Client(object):
         # 测试时不应该shuffle，避免数据与标签不匹配的问题
         return DataLoader(test_data, batch_size, drop_last=False, shuffle=False)
         
-    def set_parameters(self, model, copy_buffers=False):
+    def set_parameters(self, model, copy_buffers=None):
         try:
+            if copy_buffers is None:
+                copy_buffers = self.sync_full_state
             if copy_buffers:
                 self.model.load_state_dict(model.state_dict(), strict=True)
                 return

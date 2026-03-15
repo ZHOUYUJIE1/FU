@@ -79,13 +79,17 @@ MAIN_DEFAULTS = {
     "model": "ResNet18",
     "batch_size": 32,
     "local_learning_rate": 0.005,
+    "learning_rate_decay": False,
+    "learning_rate_decay_gamma": 0.99,
     "global_rounds": 100,
+    "top_cnt": 100,
     "local_epochs": 1,
     "algorithm": "FedAvg",
     "join_ratio": 1.0,
     "num_clients": 10,
     "times": 1,
     "eval_gap": 1,
+    "auto_break": False,
     "random_seed": 42,
     "result_tag": "",
     "forget_strategy": "sifu",
@@ -134,13 +138,17 @@ MAIN_ARG_FLAGS = {
     "model": "--model",
     "batch_size": "--batch_size",
     "local_learning_rate": "--local_learning_rate",
+    "learning_rate_decay": "--learning_rate_decay",
+    "learning_rate_decay_gamma": "--learning_rate_decay_gamma",
     "global_rounds": "--global_rounds",
+    "top_cnt": "--top_cnt",
     "local_epochs": "--local_epochs",
     "algorithm": "--algorithm",
     "join_ratio": "--join_ratio",
     "num_clients": "--num_clients",
     "times": "--times",
     "eval_gap": "--eval_gap",
+    "auto_break": "--auto_break",
     "random_seed": "--random_seed",
     "result_tag": "--result_tag",
     "forget_strategy": "--forget_strategy",
@@ -222,12 +230,17 @@ def parse_args():
     parser.add_argument("--num-clients", type=int, default=10)
     parser.add_argument("--num-classes", type=int, default=10)
     parser.add_argument("--global-rounds", type=int, default=100)
+    parser.add_argument("--top-cnt", type=int, default=100,
+                        help="Early-stop patience used by auto_break in system/main.py.")
     parser.add_argument("--local-epochs", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--local-learning-rate", type=float, default=0.005)
+    parser.add_argument("--learning-rate-decay", type=str, default="false")
+    parser.add_argument("--learning-rate-decay-gamma", type=float, default=0.99)
     parser.add_argument("--join-ratio", type=float, default=1.0)
     parser.add_argument("--times", type=int, default=1)
     parser.add_argument("--eval-gap", type=int, default=1)
+    parser.add_argument("--auto-break", type=str, default="false")
     parser.add_argument("--target-client-id", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
 
@@ -334,11 +347,11 @@ def load_generator(dataset_base):
         raise AttributeError(f"dataset.generate_{dataset_base} does not define generate_dataset")
 
     signature = inspect.signature(generate_dataset)
-    if len(signature.parameters) < 5:
-        raise TypeError(
-            f"dataset.generate_{dataset_base}.generate_dataset does not support (dir_path, num_clients, niid, balance, partition)"
-        )
-    return generate_dataset
+    param_count = len(signature.parameters)
+    if param_count < 1:
+        raise TypeError(f"dataset.generate_{dataset_base}.generate_dataset has an invalid signature.")
+    supports_partition = param_count >= 5
+    return generate_dataset, supports_partition
 
 
 def apply_partition_config(alpha):
@@ -374,15 +387,40 @@ def level_metadata(args, level, alpha_map, class_per_client_map):
 
 
 def ensure_rawdata_link(dataset_base, dataset_dir):
-    source_rawdata = DATASET_ROOT / dataset_base / "rawdata"
     target_rawdata = dataset_dir / "rawdata"
-    if target_rawdata.exists() or not source_rawdata.exists():
+    if target_rawdata.exists():
         return
 
-    try:
-        target_rawdata.symlink_to(source_rawdata, target_is_directory=True)
-    except OSError:
-        shutil.copytree(source_rawdata, target_rawdata)
+    def rawdata_ready(path):
+        if not path.exists():
+            return False
+        ready_markers = {
+            "STL10": [path / "stl10_binary"],
+            "TinyImagenet": [path / "tiny-imagenet-200"],
+            "CINIC10": [path / "CINIC-10", path / "train"],
+            "GTSRB": [path / "gtsrb", path / "GTSRB"],
+        }
+        markers = ready_markers.get(dataset_base)
+        if markers:
+            return any(marker.exists() for marker in markers)
+        return any(child.is_dir() for child in path.iterdir())
+
+    candidate_roots = [DATASET_ROOT / dataset_base / "rawdata"]
+    sibling_pattern = f"{dataset_base}_*/rawdata"
+    for sibling_rawdata in sorted(DATASET_ROOT.glob(sibling_pattern)):
+        if sibling_rawdata.parent == dataset_dir:
+            continue
+        if rawdata_ready(sibling_rawdata):
+            candidate_roots.append(sibling_rawdata)
+
+    for source_rawdata in candidate_roots:
+        if not rawdata_ready(source_rawdata):
+            continue
+        try:
+            target_rawdata.symlink_to(source_rawdata, target_is_directory=True)
+        except OSError:
+            shutil.copytree(source_rawdata, target_rawdata)
+        return
 
 
 def clear_partition_outputs(dataset_dir):
@@ -404,20 +442,31 @@ def prepare_dataset_variant(args, variant_meta):
         clear_partition_outputs(dataset_dir)
 
     ensure_rawdata_link(args.dataset_base, dataset_dir)
-    generate_dataset = load_generator(args.dataset_base)
-    apply_partition_config(variant_meta["alpha"])
+    generate_dataset, supports_partition = load_generator(args.dataset_base)
     set_global_seed(args.seed)
-    call_kwargs = {}
-    if "class_per_client" in inspect.signature(generate_dataset).parameters:
-        call_kwargs["class_per_client"] = variant_meta["class_per_client"]
-    generate_dataset(
-        str(dataset_dir) + os.sep,
-        variant_meta["num_clients"],
-        True,
-        bool(args.balance),
-        args.partition,
-        **call_kwargs,
-    )
+    if supports_partition:
+        apply_partition_config(variant_meta["alpha"])
+        call_kwargs = {}
+        if "class_per_client" in inspect.signature(generate_dataset).parameters:
+            call_kwargs["class_per_client"] = variant_meta["class_per_client"]
+        generate_dataset(
+            str(dataset_dir) + os.sep,
+            variant_meta["num_clients"],
+            True,
+            bool(args.balance),
+            args.partition,
+            **call_kwargs,
+        )
+    else:
+        # Legacy generators (e.g., Digit5/DomainNet) provide natural client partitions
+        # via generate_dataset(dir_path). Run them from dataset root so relative rawdata
+        # paths remain under ./dataset.
+        cwd = os.getcwd()
+        try:
+            os.chdir(str(DATASET_ROOT))
+            generate_dataset(str(dataset_dir) + os.sep)
+        finally:
+            os.chdir(cwd)
     return dataset_name
 
 
@@ -471,13 +520,17 @@ def build_main_command(args, dataset_name, level, method):
         "model": args.model,
         "batch_size": args.batch_size,
         "local_learning_rate": args.local_learning_rate,
+        "learning_rate_decay": args.learning_rate_decay.lower() == "true",
+        "learning_rate_decay_gamma": args.learning_rate_decay_gamma,
         "global_rounds": args.global_rounds,
+        "top_cnt": args.top_cnt,
         "local_epochs": args.local_epochs,
         "algorithm": args.algorithm,
         "join_ratio": args.join_ratio,
         "num_clients": args.num_clients,
         "times": args.times,
         "eval_gap": args.eval_gap,
+        "auto_break": args.auto_break.lower() == "true",
         "random_seed": args.seed,
         "target_client_id": args.target_client_id,
         "result_tag": result_tag,

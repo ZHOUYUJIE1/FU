@@ -68,6 +68,8 @@ class Server(object):
         self.eval_new_clients = False
         self.fine_tuning_epoch_new = args.fine_tuning_epoch_new
         self.force_include_client_id = None
+        self.sync_client_buffers = bool(getattr(args, "sync_client_buffers", True))
+        self.aggregate_float_buffers = bool(getattr(args, "aggregate_float_buffers", True))
 
     def set_clients(self, clientObj):
         for i, train_slow, send_slow in zip(range(self.num_clients), self.train_slow_clients, self.send_slow_clients):
@@ -136,13 +138,19 @@ class Server(object):
         for client in self.clients:
             start_time = time.time()
             
-            client.set_parameters(self.global_model)
+            client.set_parameters(
+                self.global_model,
+                copy_buffers=self.sync_client_buffers,
+            )
 
             client.send_time_cost['num_rounds'] += 1
             client.send_time_cost['total_cost'] += 2 * (time.time() - start_time)
 
     def _cpu_state_dict(self, state_dict):
         return {key: value.detach().cpu().clone() for key, value in state_dict.items()}
+
+    def _clone_state_dict(self, state_dict):
+        return {key: value.detach().clone() for key, value in state_dict.items()}
 
     def _extract_buffer_state(self, model):
         param_keys = {name for name, _ in model.named_parameters()}
@@ -209,8 +217,6 @@ class Server(object):
 
     def aggregate_parameters(self):
         assert (len(self.uploaded_models) > 0)
-        # 只聚合可训练参数，保留某个客户端的buffer状态。
-        # 对非IID场景直接平均BN running stats往往会显著破坏FedAvg收敛。
         prev_global_state = self._cpu_state_dict(self.global_model.state_dict())
         self.global_model = copy.deepcopy(self.uploaded_models[0])
         global_state = self.global_model.state_dict()
@@ -228,9 +234,13 @@ class Server(object):
                     agg += c_state[key] * w
                 global_state[key] = agg
             else:
-                # 保留buffer（包括BN running_mean/running_var和num_batches_tracked）。
-                # 这些统计量在客户端间分布差异很大，直接平均会明显拖垮全局模型。
-                global_state[key] = client_states[0][key].clone()
+                if self.aggregate_float_buffers and torch.is_floating_point(tensor):
+                    agg = torch.zeros_like(tensor)
+                    for w, c_state in zip(self.uploaded_weights, client_states):
+                        agg += c_state[key] * w
+                    global_state[key] = agg
+                else:
+                    global_state[key] = client_states[0][key].clone()
 
         self.global_model.load_state_dict(global_state, strict=False)
 
@@ -238,6 +248,57 @@ class Server(object):
         tracker = getattr(self, "sifu_tracker", None)
         if tracker is not None:
             tracker.update(self)
+
+    def apply_recovery_anti_revival(
+        self,
+        selected_clients,
+        base_model_state,
+        anti_revival_mask=None,
+        anti_revival_target_gradients=None,
+        anti_revival_mask_scale=1.0,
+        anti_revival_strength=0.0,
+    ):
+        """约束恢复阶段的本地更新，避免目标客户端知识在掩码参数上回流。"""
+        if not selected_clients or anti_revival_mask is None:
+            return
+
+        mask_scale = float(anti_revival_mask_scale)
+        anti_revival_strength = float(anti_revival_strength)
+        if mask_scale >= 1.0 and anti_revival_strength <= 0.0:
+            return
+
+        for client in selected_clients:
+            param_idx = 0
+            for name, param in client.model.named_parameters():
+                if not param.requires_grad or name not in base_model_state:
+                    continue
+
+                base_param = base_model_state[name].to(param.device)
+                delta = param.data - base_param
+                if param_idx >= len(anti_revival_mask):
+                    param_idx += 1
+                    continue
+
+                mask = anti_revival_mask[param_idx].to(param.device)
+                masked_delta = delta * mask
+                unmasked_delta = delta * (1.0 - mask)
+
+                if (
+                    anti_revival_target_gradients is not None
+                    and param_idx < len(anti_revival_target_gradients)
+                    and anti_revival_strength > 0.0
+                ):
+                    target_grad = anti_revival_target_gradients[param_idx].to(param.device) * mask
+                    denom = torch.sum(target_grad * target_grad)
+                    if denom.item() > 0:
+                        projection_coeff = torch.sum(masked_delta * target_grad) / (denom + 1e-12)
+                        positive_projection = torch.clamp(projection_coeff, min=0.0)
+                        if positive_projection.item() > 0:
+                            masked_delta = masked_delta - anti_revival_strength * positive_projection * target_grad
+
+                masked_delta = masked_delta * mask_scale
+                param.data.copy_(base_param + unmasked_delta + masked_delta)
+                param_idx += 1
 
     def add_parameters(self, w, client_model):
         for server_param, client_param in zip(self.global_model.parameters(), client_model.parameters()):
@@ -431,10 +492,13 @@ class Server(object):
     # fine-tuning on new clients
     def fine_tuning_new_clients(self):
         for client in self.new_clients:
-            client.set_parameters(self.global_model)
+            client.set_parameters(
+                self.global_model,
+                copy_buffers=self.sync_client_buffers,
+            )
             opt = torch.optim.SGD(client.model.parameters(), lr=self.learning_rate)
             CEloss = torch.nn.CrossEntropyLoss()
-            trainloader = client.load_train_data()
+            trainloader = client.load_train_data(augment=client.train_data_augmentation)
             client.model.train()
             for e in range(self.fine_tuning_epoch_new):
                 for i, (x, y) in enumerate(trainloader):
