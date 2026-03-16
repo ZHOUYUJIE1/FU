@@ -78,7 +78,7 @@ MAIN_DEFAULTS = {
     "num_classes": 10,
     "model": "ResNet18",
     "batch_size": 32,
-    "local_learning_rate": 0.005,
+    "local_learning_rate": 0.02,
     "global_rounds": 100,
     "local_epochs": 1,
     "algorithm": "FedAvg",
@@ -224,7 +224,7 @@ def parse_args():
     parser.add_argument("--global-rounds", type=int, default=100)
     parser.add_argument("--local-epochs", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--local-learning-rate", type=float, default=0.005)
+    parser.add_argument("--local-learning-rate", type=float, default=0.02)
     parser.add_argument("--join-ratio", type=float, default=1.0)
     parser.add_argument("--times", type=int, default=1)
     parser.add_argument("--eval-gap", type=int, default=1)
@@ -770,6 +770,15 @@ def collect_summary(args, variant_meta_by_level):
                 result_tag,
                 "txt",
             )
+            attack_recovery_path = build_result_path(
+                "attack_post_recovery",
+                dataset_name,
+                args.algorithm,
+                args.goal,
+                args.times,
+                result_tag,
+                "txt",
+            )
 
             pre_eval = read_json(pre_eval_path)
             post_eval = read_json(post_eval_path)
@@ -777,6 +786,7 @@ def collect_summary(args, variant_meta_by_level):
             forget_summary = read_json(forget_summary_path)
             attack_pre = parse_attack_file(attack_pre_path)
             attack_post = parse_attack_file(attack_post_path)
+            attack_recovery = parse_attack_file(attack_recovery_path)
 
             row["status"] = "complete" if pre_eval and post_eval and forget_summary else "missing"
             row["pre_avg_acc"] = pre_eval.get("average_accuracy") if pre_eval else None
@@ -821,6 +831,16 @@ def collect_summary(args, variant_meta_by_level):
             )
             row["backdoor_pre_acc"] = attack_pre.get("backdoor_acc")
             row["backdoor_post_acc"] = attack_post.get("backdoor_acc")
+            row["final_mia_auc"] = (
+                attack_recovery.get("mia_auc")
+                if attack_recovery.get("mia_auc") is not None
+                else attack_post.get("mia_auc")
+            )
+            row["final_backdoor_acc"] = (
+                attack_recovery.get("backdoor_acc")
+                if attack_recovery.get("backdoor_acc") is not None
+                else attack_post.get("backdoor_acc")
+            )
 
             rows.append(row)
 

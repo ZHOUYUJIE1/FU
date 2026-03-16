@@ -3,6 +3,15 @@ import os
 import torch
 from collections import defaultdict
 from functools import lru_cache
+from torchvision import transforms
+
+
+_CIFAR_SPATIAL_TRAIN_TRANSFORM = transforms.Compose([
+    transforms.RandomCrop(32, padding=4),
+    transforms.RandomHorizontalFlip(),
+])
+_CIFAR_MEAN = torch.tensor((0.5, 0.5, 0.5), dtype=torch.float32).view(3, 1, 1)
+_CIFAR_STD = torch.tensor((0.5, 0.5, 0.5), dtype=torch.float32).view(3, 1, 1)
 
 
 @lru_cache(maxsize=256)
@@ -26,14 +35,31 @@ def clear_data_cache():
     _read_npz_payload.cache_clear()
 
 
-def read_client_data(dataset, idx, is_train=True, few_shot=0):
+def _apply_cifar_train_transform(x):
+    # CIFAR tensors are stored after Normalize(0.5, 0.5, 0.5); restore to [0, 1]
+    # before spatial augmentation, then normalize back to the training scale.
+    mean = _CIFAR_MEAN.to(device=x.device, dtype=x.dtype)
+    std = _CIFAR_STD.to(device=x.device, dtype=x.dtype)
+    x = x * std + mean
+    x = x.clamp_(0.0, 1.0)
+    x = _CIFAR_SPATIAL_TRAIN_TRANSFORM(x)
+    x = (x - mean) / std
+    return x
+
+
+def read_client_data(dataset, idx, is_train=True, few_shot=0, apply_train_transform=True):
     data = read_data(dataset, idx, is_train)
     if "News" in dataset:
         data_list = process_text(data)
     elif "Shakespeare" in dataset:
         data_list = process_Shakespeare(data)
     else:
-        data_list = process_image(data)
+        data_list = process_image(
+            data,
+            dataset=dataset,
+            is_train=is_train,
+            apply_train_transform=apply_train_transform,
+        )
 
     if is_train and few_shot > 0:
         shot_cnt_dict = defaultdict(int)
@@ -46,9 +72,11 @@ def read_client_data(dataset, idx, is_train=True, few_shot=0):
         data_list = data_list_new
     return data_list
 
-def process_image(data):
+def process_image(data, dataset="", is_train=True, apply_train_transform=True):
     X = torch.Tensor(data['x']).type(torch.float32)
     y = torch.Tensor(data['y']).type(torch.int64)
+    if apply_train_transform and is_train and "Cifar" in dataset:
+        return [(_apply_cifar_train_transform(x), label) for x, label in zip(X, y)]
     return [(x, y) for x, y in zip(X, y)]
 
 

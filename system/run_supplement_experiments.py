@@ -116,7 +116,7 @@ def parse_args():
     parser.add_argument("--global-rounds", type=int, default=100)
     parser.add_argument("--local-epochs", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--local-learning-rate", type=float, default=0.005)
+    parser.add_argument("--local-learning-rate", type=float, default=0.02)
     parser.add_argument("--join-ratio", type=float, default=1.0)
     parser.add_argument("--times", type=int, default=1)
     parser.add_argument("--eval-gap", type=int, default=1)

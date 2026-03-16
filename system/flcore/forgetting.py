@@ -3966,7 +3966,7 @@ def _forget_client_with_fedosd_legacy(global_model, clients, args, target_client
     return updated_model
 
 
-def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, server=None):
+def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, server=None, round_evaluator=None):
     """
     更接近官方FedOSD-main的可对比实现：
     1. 每轮先做本地训练，再由本地模型差分构造 g_locals
@@ -4029,7 +4029,10 @@ def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, s
             d = _compute_fedosd_direction(gu, gr_stack)
 
         _apply_vector_update(updated_model, d, base_lr)
+        _aggregate_non_param_buffers(updated_model, local_models, buffer_weights)
 
+    forgotten_model = copy.deepcopy(updated_model)
+    recovery_results = []
     if recovery_rounds > 0:
         print("执行FedOSD官方风格后训练阶段...")
         for round_idx in range(recovery_rounds):
@@ -4081,6 +4084,17 @@ def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, s
 
             d = torch.mean(torch.stack(projected_grads), dim=0)
             _apply_vector_update(updated_model, d, recovery_lr)
+            _aggregate_non_param_buffers(updated_model, local_models, buffer_weights)
+
+            round_result = {
+                "round": int(round_idx + 1),
+                "test_acc": None,
+                "test_auc": None,
+                "train_loss": None,
+            }
+            if round_evaluator is not None:
+                round_result.update(round_evaluator(updated_model, round_idx + 1) or {})
+            recovery_results.append(round_result)
 
     for client in clients:
         if client.id in original_losses:
@@ -4090,7 +4104,13 @@ def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, s
         server.global_model = copy.deepcopy(updated_model)
 
     print("FedOSD遗忘完成")
-    return updated_model
+    return {
+        "model": forgotten_model,
+        "post_recovery_model": copy.deepcopy(updated_model) if recovery_results else None,
+        "recovery_results": recovery_results,
+        "recovery_rounds": len(recovery_results),
+        "recovery_stage": "internal_fedosd_post_training" if recovery_results else "skipped_for_fedosd",
+    }
 
 
 def forget_client_with_fedu(global_model, clients, args, target_client_id=0):

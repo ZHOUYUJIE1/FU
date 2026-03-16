@@ -39,6 +39,9 @@ def read_json(path):
 
 
 def parse_attack_file(path):
+    if not path.exists():
+        return {}
+
     parsed = {}
     with path.open("r", encoding="utf-8") as f:
         for raw_line in f:
@@ -100,6 +103,7 @@ def build_fu_row(level, original_row, args, fu_tags):
     forget_summary = read_json(build_result_path("forget_effect", dataset_name, args.algorithm, args.goal, args.times, result_tag, "json"))
     attack_pre = parse_attack_file(build_result_path("attack_pre_forget", dataset_name, args.algorithm, args.goal, args.times, result_tag, "txt"))
     attack_post = parse_attack_file(build_result_path("attack_post_forget", dataset_name, args.algorithm, args.goal, args.times, result_tag, "txt"))
+    attack_recovery = parse_attack_file(build_result_path("attack_post_recovery", dataset_name, args.algorithm, args.goal, args.times, result_tag, "txt"))
     final_eval = recovery_eval or post_eval
 
     row = dict(original_row)
@@ -134,8 +138,16 @@ def build_fu_row(level, original_row, args, fu_tags):
         "backdoor_pre_acc": attack_pre.get("backdoor_acc"),
         "backdoor_post_acc": attack_post.get("backdoor_acc"),
         "final_avg_auc": "",
-        "final_mia_auc": "",
-        "final_backdoor_acc": "",
+        "final_mia_auc": (
+            attack_recovery.get("mia_auc")
+            if attack_recovery.get("mia_auc") is not None
+            else attack_post.get("mia_auc")
+        ),
+        "final_backdoor_acc": (
+            attack_recovery.get("backdoor_acc")
+            if attack_recovery.get("backdoor_acc") is not None
+            else attack_post.get("backdoor_acc")
+        ),
     })
     return row
 

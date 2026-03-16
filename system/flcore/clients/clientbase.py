@@ -44,7 +44,20 @@ class Client(object):
         self.send_time_cost = {'num_rounds': 0, 'total_cost': 0.0}
 
         self.loss = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
+        default_momentum = 0.9 if "Cifar" in self.dataset else 0.0
+        default_weight_decay = 5e-4 if "Cifar" in self.dataset else 0.0
+        momentum = getattr(args, "sgd_momentum", None)
+        weight_decay = getattr(args, "weight_decay", None)
+        if momentum is None:
+            momentum = default_momentum
+        if weight_decay is None:
+            weight_decay = default_weight_decay
+        self.optimizer = torch.optim.SGD(
+            self.model.parameters(),
+            lr=self.learning_rate,
+            momentum=momentum,
+            weight_decay=weight_decay,
+        )
         self.learning_rate_scheduler = torch.optim.lr_scheduler.ExponentialLR(
             optimizer=self.optimizer, 
             gamma=args.learning_rate_decay_gamma
@@ -52,11 +65,17 @@ class Client(object):
         self.learning_rate_decay = args.learning_rate_decay
 
 
-    def load_train_data(self, batch_size=None):
+    def load_train_data(self, batch_size=None, apply_train_transform=True, shuffle=True, drop_last=True):
         if batch_size == None:
             batch_size = self.batch_size
-        train_data = read_client_data(self.dataset, self.id, is_train=True, few_shot=self.few_shot)
-        return DataLoader(train_data, batch_size, drop_last=True, shuffle=True)
+        train_data = read_client_data(
+            self.dataset,
+            self.id,
+            is_train=True,
+            few_shot=self.few_shot,
+            apply_train_transform=apply_train_transform,
+        )
+        return DataLoader(train_data, batch_size, drop_last=drop_last, shuffle=shuffle)
 
     def load_test_data(self, batch_size=None):
         if batch_size == None:
@@ -138,7 +157,7 @@ class Client(object):
         return test_acc, test_num, auc
 
     def train_metrics(self):
-        trainloader = self.load_train_data()
+        trainloader = self.load_train_data(apply_train_transform=False, shuffle=False, drop_last=False)
         # self.model = self.load_model('model')
         # self.model.to(self.device)
         self.model.eval()

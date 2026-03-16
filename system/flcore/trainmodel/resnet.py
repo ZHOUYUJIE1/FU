@@ -151,7 +151,8 @@ class ResNet(nn.Module):
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None, 
         has_bn = True,
-        bn_block_num = 4, 
+        bn_block_num = 4,
+        cifar_stem: bool = False,
     ) -> None:
         super(ResNet, self).__init__()
         if norm_layer is None:
@@ -167,13 +168,17 @@ class ResNet(nn.Module):
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.cifar_stem = bool(cifar_stem)
+        if self.cifar_stem:
+            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
+        else:
+            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         if has_bn:
             self.bn1 = norm_layer(self.inplanes)
         else:
             self.bn1 = nn.Identity()
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.maxpool = nn.Identity() if self.cifar_stem else nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layers = []
         self.layers.extend(self._make_layer(block, 64, layers[0], has_bn=has_bn and (bn_block_num > 0)))

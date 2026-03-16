@@ -55,7 +55,11 @@ from utils.mem_utils import MemReporter
 
 # 导入遗忘模块
 from flcore.forgetting import forget_client_wrapper
-from flcore.eval_attack import membership_inference_attack, backdoor_attack
+from flcore.eval_attack import (
+    backdoor_attack,
+    build_membership_reference,
+    membership_inference_attack,
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
@@ -123,6 +127,8 @@ def save_experiment_config(args, seed):
         "model": args.model,
         "batch_size": args.batch_size,
         "local_learning_rate": args.local_learning_rate,
+        "sgd_momentum": args.sgd_momentum,
+        "weight_decay": args.weight_decay,
         "learning_rate_decay": args.learning_rate_decay,
         "learning_rate_decay_gamma": args.learning_rate_decay_gamma,
         "global_rounds": args.global_rounds,
@@ -455,6 +461,70 @@ def compute_target_and_retain_metrics(accs, target_client_id):
     return target_acc, retain_avg_acc
 
 
+def format_attack_summary_lines(mia_result, backdoor_acc):
+    metric_details = mia_result.get("metric_details", {})
+    true_conf = metric_details.get("true_class_confidence", {})
+    neg_loss = metric_details.get("negative_loss", {})
+    max_conf = metric_details.get("max_confidence", {})
+    correctness = metric_details.get("correctness", {})
+    reference = mia_result.get("reference", {})
+    sanity = mia_result.get("sanity_checks", {})
+
+    return [
+        f"MIA AUC: {mia_result['auc']:.4f}",
+        f"MIA Best Acc: {mia_result['best_acc']:.4f}",
+        f"MIA Best Thr: {mia_result['best_thr']:.6f}",
+        f"MIA Score Name: {mia_result.get('score_name', 'unknown')}",
+        f"MIA Fixed Thr: {mia_result.get('fixed_thr', 0.0):.6f}",
+        f"MIA Fixed Acc: {mia_result.get('fixed_acc', 0.0):.4f}",
+        f"MIA True-Class Confidence AUC: {true_conf.get('auc', 0.0):.4f}",
+        f"MIA Negative-Loss AUC: {neg_loss.get('auc', 0.0):.4f}",
+        f"MIA Max-Confidence AUC: {max_conf.get('auc', 0.0):.4f}",
+        f"MIA Correctness AUC: {correctness.get('auc', 0.0):.4f}",
+        f"MIA Flipped Primary AUC: {sanity.get('flipped_primary_auc', 0.0):.4f}",
+        f"MIA Member Source: {reference.get('member_source', '')}",
+        f"MIA Nonmember Source: {reference.get('nonmember_source', '')}",
+        f"MIA Sample Count Per Split: {reference.get('sample_count_per_split', 0)}",
+        f"Backdoor Acc: {backdoor_acc:.4f}",
+    ]
+
+
+def save_attack_results(stage_name, mia_result, backdoor_acc, args):
+    txt_path = build_result_artifact_path(f"attack_{stage_name}", args, "txt")
+    json_path = build_result_artifact_path(f"attack_{stage_name}", args, "json")
+
+    with open(txt_path, "w") as f:
+        f.write("\n".join(format_attack_summary_lines(mia_result, backdoor_acc)) + "\n")
+
+    payload = {
+        "stage": stage_name,
+        "mia": mia_result,
+        "backdoor_acc": float(backdoor_acc),
+    }
+    with open(json_path, "w") as f:
+        json.dump(payload, f, indent=2)
+
+    print(f"攻击评估结果已保存到: {txt_path}")
+
+
+def run_attack_evaluation(model, client, args, stage_name, display_name, attack_reference):
+    mia_result = membership_inference_attack(
+        model,
+        client,
+        args.device,
+        reference_data=attack_reference,
+        batch_size=args.batch_size,
+    )
+    backdoor_acc = backdoor_attack(model, client, args.device)
+    print(
+        f"[{display_name}] AUC: {mia_result['auc']:.4f}, "
+        f"最佳准确率: {mia_result['best_acc']:.4f}, 最佳阈值: {mia_result['best_thr']:.4f}"
+    )
+    print(f"[{display_name}后门攻击] 后门样本准确率: {backdoor_acc:.4f}")
+    save_attack_results(stage_name, mia_result, backdoor_acc, args)
+    return mia_result, backdoor_acc
+
+
 def select_best_fu_recovery_candidate(server, args, post_accs, post_eval_metrics, recovery_results):
     if not recovery_results:
         return None
@@ -486,6 +556,7 @@ def select_best_fu_recovery_candidate(server, args, post_accs, post_eval_metrics
             server.clients,
             stage_name,
             server=server,
+            target_client_id=args.target_client_id,
         )
         target_acc, retain_avg_acc = compute_target_and_retain_metrics(accs, args.target_client_id)
         score = retain_avg_acc - target_penalty * target_acc
@@ -543,7 +614,10 @@ def build_base_model(args, model_str):
         else:
             model = DNN(60, 20, num_classes=args.num_classes).to(args.device)
     elif model_str == "ResNet18":
-        model = torchvision.models.resnet18(pretrained=False, num_classes=args.num_classes).to(args.device)
+        model = resnet18(
+            num_classes=args.num_classes,
+            cifar_stem="Cifar" in args.dataset,
+        ).to(args.device)
     elif model_str == "ResNet10":
         model = resnet10(num_classes=args.num_classes).to(args.device)
     elif model_str == "ResNet34":
@@ -653,11 +727,85 @@ def create_server(args, times, model_str):
 
     return server
 
-def evaluate_on_all_clients(global_model, clients, stage_name="评估", server=None):
+def _set_client_eval_parameters(client, global_model, server=None, copy_buffers=False):
+    if hasattr(client, 'set_parameters'):
+        if server is not None and hasattr(server, 'global_c'):
+            client.set_parameters(global_model, global_c=server.global_c, copy_buffers=copy_buffers)
+        else:
+            client.set_parameters(global_model, copy_buffers=copy_buffers)
+    else:
+        if copy_buffers:
+            client.model.load_state_dict(global_model.state_dict(), strict=True)
+        else:
+            client.model = copy.deepcopy(global_model)
+
+
+def _debug_zero_accuracy_client(client, client_index):
+    print(f"  调试：检查客户端{client_index}的预测分布...")
+    client.model.eval()
+    testloader = client.load_test_data()
+    all_predictions = []
+    all_labels = []
+    all_outputs = []
+    with torch.no_grad():
+        for x, y in testloader:
+            if type(x) == type([]):
+                x[0] = x[0].to(client.device)
+            else:
+                x = x.to(client.device)
+            output = client.model(x)
+            pred = torch.argmax(output, dim=1)
+            all_predictions.extend(pred.cpu().numpy())
+            all_labels.extend(y.numpy())
+            all_outputs.append(output.cpu().numpy())
+            if len(all_predictions) >= 100:
+                break
+
+    from collections import Counter
+    pred_counter = Counter(all_predictions)
+    label_counter = Counter(all_labels[:len(all_predictions)])
+    print(f"  客户端{client_index}前100个样本 - 真实标签分布: {dict(label_counter)}")
+    print(f"  客户端{client_index}前100个样本 - 预测标签分布: {dict(pred_counter)}")
+
+    if len(all_outputs) > 0:
+        outputs_array = np.concatenate(all_outputs, axis=0)[:len(all_labels)]
+        labels_array = np.array(all_labels[:len(outputs_array)])
+        idx_4 = np.where(labels_array == 4)[0]
+        idx_5 = np.where(labels_array == 5)[0]
+        if len(idx_4) > 0:
+            print(f"  标签4的样本数: {len(idx_4)}")
+            avg_logits_4 = outputs_array[idx_4].mean(axis=0)
+            print(f"  标签4样本的平均logits (前5个): {avg_logits_4[:5]}")
+            print(f"  标签4样本的平均logits (后5个): {avg_logits_4[-5:]}")
+            pred_4 = np.array(all_predictions[:len(outputs_array)])[idx_4]
+            print(f"  标签4样本的预测类别分布: {dict(Counter(pred_4))}")
+        if len(idx_5) > 0:
+            print(f"  标签5的样本数: {len(idx_5)}")
+            avg_logits_5 = outputs_array[idx_5].mean(axis=0)
+            print(f"  标签5样本的平均logits (前5个): {avg_logits_5[:5]}")
+            print(f"  标签5样本的平均logits (后5个): {avg_logits_5[-5:]}")
+            pred_5 = np.array(all_predictions[:len(outputs_array)])[idx_5]
+            print(f"  标签5样本的预测类别分布: {dict(Counter(pred_5))}")
+
+    print(f"  检查模型参数设置...")
+    print(f"  模型输出层形状: {list(client.model.parameters())[-1].shape}")
+    print(f"  模型是否在eval模式: {not client.model.training}")
+
+
+def _run_client_evaluation(client, global_model, server=None, copy_buffers=False):
+    _set_client_eval_parameters(client, global_model, server=server, copy_buffers=copy_buffers)
+    test_acc, test_num, auc = client.test_metrics()
+    acc = 0.0 if test_num == 0 else test_acc / test_num
+    return test_acc, test_num, auc, acc
+
+
+def evaluate_on_all_clients(global_model, clients, stage_name="评估", server=None, target_client_id=None):
     """在所有客户端数据上评估全局模型"""
     print(f"\n============= {stage_name} =============", flush=True)
     accs = []
     aucs = []
+    global_buffer_accs = []
+    global_buffer_aucs = []
     total_clients = len(clients)
     
     for i, client in enumerate(clients):
@@ -665,108 +813,131 @@ def evaluate_on_all_clients(global_model, clients, stage_name="评估", server=N
             f"[{stage_name}] 评估进度: 客户端 {i + 1}/{total_clients} (client_id={client.id})",
             flush=True,
         )
-        # 设置客户端模型为全局模型
-        # 对于SCAFFOLD，需要传递global_c（评估时可以为None）
-        if hasattr(client, 'set_parameters'):
-            if server is not None and hasattr(server, 'global_c'):
-                # SCAFFOLD需要global_c参数
-                client.set_parameters(global_model, global_c=server.global_c)
-            else:
-                client.set_parameters(global_model)
-        else:
-            client.model = copy.deepcopy(global_model)
-        
-        # 评估
-        test_acc, test_num, auc = client.test_metrics()
-        
+
+        test_acc, test_num, auc, acc = _run_client_evaluation(
+            client,
+            global_model,
+            server=server,
+            copy_buffers=False,
+        )
+        original_local_state = {
+            key: value.detach().cpu().clone()
+            for key, value in client.model.state_dict().items()
+        }
         if test_num == 0:
             print(f"警告：客户端{i}的测试样本数为0，可能测试集为空或无法加载！")
-            acc = 0.0
         else:
-            acc = test_acc / test_num
             if acc == 0.0 and test_num > 0:
                 print(f"提示：客户端{i}使用测试集评估，测试样本数={test_num}，但准确率为0（可能模型完全预测错误）")
-                # 添加详细调试信息：检查预测分布
                 if i == 5:  # 特别关注客户端5
-                    print(f"  调试：检查客户端{i}的预测分布...")
-                    client.model.eval()
-                    testloader = client.load_test_data()
-                    all_predictions = []
-                    all_labels = []
-                    all_outputs = []  # 保存原始输出
-                    with torch.no_grad():
-                        for x, y in testloader:
-                            if type(x) == type([]):
-                                x[0] = x[0].to(client.device)
-                            else:
-                                x = x.to(client.device)
-                            output = client.model(x)
-                            pred = torch.argmax(output, dim=1)
-                            all_predictions.extend(pred.cpu().numpy())
-                            all_labels.extend(y.numpy())
-                            all_outputs.append(output.cpu().numpy())
-                            if len(all_predictions) >= 100:  # 只检查前100个样本
-                                break
-                    
-                    from collections import Counter
-                    pred_counter = Counter(all_predictions)
-                    label_counter = Counter(all_labels[:len(all_predictions)])
-                    print(f"  客户端{i}前100个样本 - 真实标签分布: {dict(label_counter)}")
-                    print(f"  客户端{i}前100个样本 - 预测标签分布: {dict(pred_counter)}")
-                    
-                    # 检查模型输出层对类别4和5的logits
-                    if len(all_outputs) > 0:
-                        outputs_array = np.concatenate(all_outputs, axis=0)[:len(all_labels)]  # 确保长度匹配
-                        labels_array = np.array(all_labels[:len(outputs_array)])
-                        # 找出标签为4和5的样本
-                        idx_4 = np.where(labels_array == 4)[0]
-                        idx_5 = np.where(labels_array == 5)[0]
-                        if len(idx_4) > 0:
-                            print(f"  标签4的样本数: {len(idx_4)}")
-                            avg_logits_4 = outputs_array[idx_4].mean(axis=0)
-                            print(f"  标签4样本的平均logits (前5个): {avg_logits_4[:5]}")
-                            print(f"  标签4样本的平均logits (后5个): {avg_logits_4[-5:]}")
-                            pred_4 = np.array(all_predictions[:len(outputs_array)])[idx_4]
-                            print(f"  标签4样本的预测类别分布: {dict(Counter(pred_4))}")
-                        if len(idx_5) > 0:
-                            print(f"  标签5的样本数: {len(idx_5)}")
-                            avg_logits_5 = outputs_array[idx_5].mean(axis=0)
-                            print(f"  标签5样本的平均logits (前5个): {avg_logits_5[:5]}")
-                            print(f"  标签5样本的平均logits (后5个): {avg_logits_5[-5:]}")
-                            pred_5 = np.array(all_predictions[:len(outputs_array)])[idx_5]
-                            print(f"  标签5样本的预测类别分布: {dict(Counter(pred_5))}")
-                    
-                    # 检查模型参数是否正确设置
-                    print(f"  检查模型参数设置...")
-                    print(f"  模型输出层形状: {list(client.model.parameters())[-1].shape}")
-                    print(f"  模型是否在eval模式: {not client.model.training}")
-        
+                    _debug_zero_accuracy_client(client, i)
+
+        global_test_acc, global_test_num, global_auc, global_acc = _run_client_evaluation(
+            client,
+            global_model,
+            server=server,
+            copy_buffers=True,
+        )
+        if global_test_num != test_num:
+            print(
+                f"警告：客户端{i} local/global 评估样本数不一致: "
+                f"{test_num} vs {global_test_num}",
+                flush=True,
+            )
+        client.model.load_state_dict(original_local_state, strict=True)
+
         accs.append(acc)
         aucs.append(auc)
-        
-        print(f"客户端{i} - 准确率: {acc:.4f}, AUC: {auc:.4f}, 测试样本数: {test_num}")
+        global_buffer_accs.append(global_acc)
+        global_buffer_aucs.append(global_auc)
+
+        print(
+            f"客户端{i} - "
+            f"local-buffer准确率: {acc:.4f}, global-buffer准确率: {global_acc:.4f}, "
+            f"local-buffer AUC: {auc:.4f}, global-buffer AUC: {global_auc:.4f}, "
+            f"测试样本数: {test_num}"
+        )
     
     avg_acc = np.mean(accs)
     avg_auc = np.mean(aucs)
     std_acc = np.std(accs)
     std_auc = np.std(aucs)
+    global_avg_acc = np.mean(global_buffer_accs)
+    global_avg_auc = np.mean(global_buffer_aucs)
+    global_std_acc = np.std(global_buffer_accs)
+    global_std_auc = np.std(global_buffer_aucs)
     
     print(f"\n平均准确率: {avg_acc:.4f} ± {std_acc:.4f}")
+    print(f"平均准确率 (global buffers): {global_avg_acc:.4f} ± {global_std_acc:.4f}")
     print(f"平均AUC: {avg_auc:.4f} ± {std_auc:.4f}")
+    print(f"平均AUC (global buffers): {global_avg_auc:.4f} ± {global_std_auc:.4f}")
+    if target_client_id is not None and 0 <= target_client_id < len(accs):
+        target_acc, retain_avg_acc = compute_target_and_retain_metrics(accs, target_client_id)
+        global_target_acc, global_retain_avg_acc = compute_target_and_retain_metrics(global_buffer_accs, target_client_id)
+        print(f"目标客户端准确率: {target_acc:.4f}")
+        print(f"保留客户端平均准确率: {retain_avg_acc:.4f}")
+        print(f"目标客户端准确率 (global buffers): {global_target_acc:.4f}")
+        print(f"保留客户端平均准确率 (global buffers): {global_retain_avg_acc:.4f}")
+
+    evaluate_on_all_clients.last_details = {
+        "client_accuracies": list(accs),
+        "client_aucs": list(aucs),
+        "average_accuracy": float(avg_acc),
+        "average_auc": float(avg_auc),
+        "std_accuracy": float(std_acc),
+        "std_auc": float(std_auc),
+        "global_buffer_client_accuracies": list(global_buffer_accs),
+        "global_buffer_client_aucs": list(global_buffer_aucs),
+        "global_buffer_average_accuracy": float(global_avg_acc),
+        "global_buffer_average_auc": float(global_avg_auc),
+        "global_buffer_std_accuracy": float(global_std_acc),
+        "global_buffer_std_auc": float(global_std_auc),
+    }
     
     return accs, aucs, avg_acc, avg_auc, std_acc, std_auc
 
-def save_evaluation_results(accs, aucs, avg_acc, avg_auc, std_acc, std_auc, stage_name, args):
+def save_evaluation_results(accs, aucs, avg_acc, avg_auc, std_acc, std_auc, stage_name, args, evaluation_details=None):
     """保存评估结果"""
+    target_acc, retain_avg_acc = compute_target_and_retain_metrics(accs, args.target_client_id)
     results = {
         "stage": stage_name,
         "client_accuracies": accs,
+        "local_buffer_client_accuracies": accs,
         "client_aucs": aucs,
+        "local_buffer_client_aucs": aucs,
         "average_accuracy": avg_acc,
+        "local_buffer_average_accuracy": avg_acc,
         "average_auc": avg_auc,
+        "local_buffer_average_auc": avg_auc,
         "std_accuracy": std_acc,
-        "std_auc": std_auc
+        "local_buffer_std_accuracy": std_acc,
+        "std_auc": std_auc,
+        "local_buffer_std_auc": std_auc,
+        "target_client_accuracy": float(target_acc),
+        "local_buffer_target_client_accuracy": float(target_acc),
+        "retained_average_accuracy": float(retain_avg_acc),
+        "local_buffer_retained_average_accuracy": float(retain_avg_acc),
     }
+
+    if evaluation_details is None:
+        evaluation_details = getattr(evaluate_on_all_clients, "last_details", None)
+    if evaluation_details:
+        global_accs = evaluation_details.get("global_buffer_client_accuracies")
+        if global_accs:
+            global_target_acc, global_retain_avg_acc = compute_target_and_retain_metrics(
+                global_accs,
+                args.target_client_id,
+            )
+            results.update({
+                "global_buffer_client_accuracies": global_accs,
+                "global_buffer_client_aucs": evaluation_details.get("global_buffer_client_aucs", []),
+                "global_buffer_average_accuracy": float(evaluation_details.get("global_buffer_average_accuracy", 0.0)),
+                "global_buffer_average_auc": float(evaluation_details.get("global_buffer_average_auc", 0.0)),
+                "global_buffer_std_accuracy": float(evaluation_details.get("global_buffer_std_accuracy", 0.0)),
+                "global_buffer_std_auc": float(evaluation_details.get("global_buffer_std_auc", 0.0)),
+                "global_buffer_target_client_accuracy": float(global_target_acc),
+                "global_buffer_retained_average_accuracy": float(global_retain_avg_acc),
+            })
     
     results_path = build_result_artifact_path(f"eval_{stage_name}", args, "json")
     
@@ -850,7 +1021,7 @@ def run(args):
                 # 对重训练后的模型在所有客户端上做一次完整评估
                 print("\n============= 重训练后评估（所有客户端） =============")
                 rt_accs, rt_aucs, rt_avg_acc, rt_avg_auc, rt_std_acc, rt_std_auc = evaluate_on_all_clients(
-                    retrain_model, server.clients, "重训练后评估", server=server
+                    retrain_model, server.clients, "重训练后评估", server=server, target_client_id=args.target_client_id
                 )
 
                 # 保存评估结果
@@ -861,15 +1032,15 @@ def run(args):
 
                 # 对目标客户端做同样的攻击评估（MIA + 后门）
                 print("\n============= 重训练后攻击评估（目标客户端） =============")
-                mia_rt = membership_inference_attack(retrain_model, server.clients[args.target_client_id], args.device)
-                print(f"[重训练后MIA] AUC: {mia_rt['auc']:.4f}, 最佳准确率: {mia_rt['best_acc']:.4f}, 最佳阈值: {mia_rt['best_thr']:.2f}")
-                backdoor_acc_rt = backdoor_attack(retrain_model, server.clients[args.target_client_id], args.device)
-                print(f"[重训练后后门攻击] 后门样本准确率: {backdoor_acc_rt:.4f}")
-
-                # 保存攻击评估结果
-                with open(build_result_artifact_path("attack_retrain_only", args, "txt"), "w") as f:
-                    f.write(f"MIA AUC: {mia_rt['auc']:.4f}\nMIA Best Acc: {mia_rt['best_acc']:.4f}\nMIA Best Thr: {mia_rt['best_thr']:.2f}\n")
-                    f.write(f"Backdoor Acc: {backdoor_acc_rt:.4f}\n")
+                attack_reference = build_membership_reference(server.clients[args.target_client_id])
+                run_attack_evaluation(
+                    retrain_model,
+                    server.clients[args.target_client_id],
+                    args,
+                    stage_name="retrain_only",
+                    display_name="重训练后MIA",
+                    attack_reference=attack_reference,
+                )
 
                 time_list.append(time.time() - start)
                 return
@@ -975,7 +1146,7 @@ def run(args):
             # 遗忘前评估：在所有客户端数据上测试准确率
             print("\n============= 遗忘前评估 =============")
             pre_accs, pre_aucs, pre_avg_acc, pre_avg_auc, pre_std_acc, pre_std_auc = evaluate_on_all_clients(
-                global_model, server.clients, "遗忘前评估", server=server)
+                global_model, server.clients, "遗忘前评估", server=server, target_client_id=args.target_client_id)
             
             # 保存遗忘前评估结果
             save_evaluation_results(pre_accs, pre_aucs, pre_avg_acc, pre_avg_auc, pre_std_acc, pre_std_auc, 
@@ -983,14 +1154,15 @@ def run(args):
 
             # 遗忘前攻击评估
             print("\n============= 遗忘前攻击评估 =============")
-            mia_pre = membership_inference_attack(global_model, server.clients[args.target_client_id], args.device)
-            print(f"[遗忘前MIA] AUC: {mia_pre['auc']:.4f}, 最佳准确率: {mia_pre['best_acc']:.4f}, 最佳阈值: {mia_pre['best_thr']:.2f}")
-            backdoor_acc_pre = backdoor_attack(global_model, server.clients[args.target_client_id], args.device)
-            print(f"[遗忘前后门攻击] 后门样本准确率: {backdoor_acc_pre:.4f}")
-            # 保存攻击评估结果
-            with open(build_result_artifact_path("attack_pre_forget", args, "txt"), "w") as f:
-                f.write(f"MIA AUC: {mia_pre['auc']:.4f}\nMIA Best Acc: {mia_pre['best_acc']:.4f}\nMIA Best Thr: {mia_pre['best_thr']:.2f}\n")
-                f.write(f"Backdoor Acc: {backdoor_acc_pre:.4f}\n")
+            attack_reference = build_membership_reference(server.clients[args.target_client_id])
+            mia_pre, backdoor_acc_pre = run_attack_evaluation(
+                global_model,
+                server.clients[args.target_client_id],
+                args,
+                stage_name="pre_forget",
+                display_name="遗忘前MIA",
+                attack_reference=attack_reference,
+            )
 
             # 遗忘阶段：遗忘客户端{args.target_client_id}
             print(f"\n============= 开始遗忘阶段 =============")
@@ -1020,6 +1192,20 @@ def run(args):
                         args,
                         target_client_id=args.target_client_id,
                         server=server,
+                        round_evaluator=lambda model, round_idx: {
+                            "attack": membership_inference_attack(
+                                model,
+                                server.clients[args.target_client_id],
+                                args.device,
+                                reference_data=attack_reference,
+                                batch_size=args.batch_size,
+                            ),
+                            "backdoor_acc": backdoor_attack(
+                                model,
+                                server.clients[args.target_client_id],
+                                args.device,
+                            ),
+                        },
                     )
                 
                 elif args.forget_strategy == "fedu":
@@ -1041,6 +1227,20 @@ def run(args):
                         args,
                         target_client_id=args.target_client_id,
                         server=server,
+                        round_evaluator=lambda model, round_idx: {
+                            "attack": membership_inference_attack(
+                                model,
+                                server.clients[args.target_client_id],
+                                args.device,
+                                reference_data=attack_reference,
+                                batch_size=args.batch_size,
+                            ),
+                            "backdoor_acc": backdoor_attack(
+                                model,
+                                server.clients[args.target_client_id],
+                                args.device,
+                            ),
+                        },
                     )
                 else:
                     raise ValueError(f"Unknown forgetting strategy: {args.forget_strategy}")
@@ -1062,11 +1262,21 @@ def run(args):
             # 遗忘后评估：在所有客户端数据上测试准确率
             print("\n============= 遗忘后评估 =============")
             post_accs, post_aucs, post_avg_acc, post_avg_auc, post_std_acc, post_std_auc = evaluate_on_all_clients(
-                global_model_forget, server.clients, "遗忘后评估", server=server)
+                global_model_forget, server.clients, "遗忘后评估", server=server, target_client_id=args.target_client_id)
             
             # 保存遗忘后评估结果
             save_evaluation_results(post_accs, post_aucs, post_avg_acc, post_avg_auc, post_std_acc, post_std_auc, 
                                   "post_forget", args)
+
+            print("\n============= 遗忘后恢复前攻击评估 =============")
+            mia_post, backdoor_acc_post = run_attack_evaluation(
+                global_model_forget,
+                server.clients[args.target_client_id],
+                args,
+                stage_name="post_forget",
+                display_name="遗忘后MIA",
+                attack_reference=attack_reference,
+            )
 
             # 计算遗忘效果（以遗忘前准确率为基准）
             print("\n============= 遗忘效果分析 =============")
@@ -1093,7 +1303,7 @@ def run(args):
                 or args.forget_strategy == "sifu"
             )
             if args.forget_strategy == "fedosd" and skip_external_recovery:
-                recovery_rounds = getattr(args, 'fedosd_recovery_rounds', 0)
+                recovery_rounds = method_recovery_rounds
             elif args.forget_strategy == "sifu" and skip_external_recovery:
                 recovery_rounds = method_recovery_rounds
             else:
@@ -1111,9 +1321,9 @@ def run(args):
                     print("FedOSD 对比实现已在遗忘函数内部完成 post-training，外层通用恢复不再重复执行。")
                 elif args.forget_strategy == "fedau":
                     print("FedAU 默认不执行额外服务器恢复阶段，以保持与官方方法更一致。")
-                elif args.forget_strategy == "sifu":
+                elif args.forget_strategy in {"sifu", "fedosd"}:
                     if method_post_recovery_model is not None:
-                        print("SIFU 对比实现已在方法内部完成回跳后的恢复训练，外层通用恢复不再重复执行。")
+                        print("方法内部已完成恢复训练，外层通用恢复不再重复执行。")
                         server.global_model = method_post_recovery_model
                         restored = restore_client_buffer_states(
                             server,
@@ -1129,7 +1339,7 @@ def run(args):
 
                         print("\n============= 恢复后评估 =============")
                         recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = evaluate_on_all_clients(
-                            server.global_model, server.clients, "恢复后评估", server=server)
+                            server.global_model, server.clients, "恢复后评估", server=server, target_client_id=args.target_client_id)
                         save_evaluation_results(
                             recovery_accs,
                             recovery_aucs,
@@ -1142,9 +1352,18 @@ def run(args):
                         )
                         recovery_effect = recovery_avg_acc - post_avg_acc
                         print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
+                        print("\n============= 恢复后攻击评估 =============")
+                        run_attack_evaluation(
+                            server.global_model,
+                            server.clients[args.target_client_id],
+                            args,
+                            stage_name="post_recovery",
+                            display_name="恢复后MIA",
+                            attack_reference=attack_reference,
+                        )
                         global_model_forget = server.global_model
                     else:
-                        print("SIFU 已按当前配置跳过恢复阶段。")
+                        print("方法已按当前配置跳过恢复阶段。")
             else:
                 print(f"\n============= 开始恢复阶段 =============")
                 print(f"其他客户端性能变化: {others_rel_change_avg*100:.2f}%")
@@ -1154,6 +1373,28 @@ def run(args):
                 
                 # 使用遗忘后的模型进行恢复训练
                 server.global_model = global_model_forget
+                def recovery_round_evaluator(model, round_idx):
+                    mia_round = membership_inference_attack(
+                        model,
+                        server.clients[args.target_client_id],
+                        args.device,
+                        reference_data=attack_reference,
+                        batch_size=args.batch_size,
+                    )
+                    backdoor_round = backdoor_attack(
+                        model,
+                        server.clients[args.target_client_id],
+                        args.device,
+                    )
+                    print(
+                        f"[恢复第{round_idx}轮攻击评估] MIA AUC: {mia_round['auc']:.4f}, "
+                        f"后门准确率: {backdoor_round:.4f}"
+                    )
+                    return {
+                        "attack": mia_round,
+                        "backdoor_acc": float(backdoor_round),
+                    }
+
                 use_fu_adaptive_recovery = (
                     args.forget_strategy == "gradient_reversal"
                     and getattr(args, "fu_select_best_recovery", True)
@@ -1164,6 +1405,7 @@ def run(args):
                     recovery_rounds=recovery_rounds,
                     capture_snapshots=use_fu_adaptive_recovery,
                     lr_scale=getattr(args, "fu_recovery_lr_scale", 1.0),
+                    round_evaluator=recovery_round_evaluator,
                 )
 
                 if use_fu_adaptive_recovery:
@@ -1199,6 +1441,15 @@ def run(args):
                             "post_recovery",
                             args,
                         )
+                        print("\n============= 恢复后攻击评估 =============")
+                        run_attack_evaluation(
+                            server.global_model,
+                            server.clients[args.target_client_id],
+                            args,
+                            stage_name="post_recovery",
+                            display_name="恢复后MIA",
+                            attack_reference=attack_reference,
+                        )
                         print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
                         global_model_forget = server.global_model
                     else:
@@ -1217,11 +1468,20 @@ def run(args):
                     # 恢复后评估
                     print("\n============= 恢复后评估 =============")
                     recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = evaluate_on_all_clients(
-                        server.global_model, server.clients, "恢复后评估", server=server)
+                        server.global_model, server.clients, "恢复后评估", server=server, target_client_id=args.target_client_id)
                     
                     # 保存恢复后评估结果
                     save_evaluation_results(recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc, 
                                           "post_recovery", args)
+                    print("\n============= 恢复后攻击评估 =============")
+                    run_attack_evaluation(
+                        server.global_model,
+                        server.clients[args.target_client_id],
+                        args,
+                        stage_name="post_recovery",
+                        display_name="恢复后MIA",
+                        attack_reference=attack_reference,
+                    )
                     
                     # 计算恢复效果
                     recovery_effect = recovery_avg_acc - post_avg_acc
@@ -1261,6 +1521,23 @@ def run(args):
                     else "external_server_recovery"
                 )
             }
+            forget_summary["attack_pre"] = {
+                "mia_auc": float(mia_pre.get("auc", 0.0)),
+                "mia_best_acc": float(mia_pre.get("best_acc", 0.0)),
+                "backdoor_acc": float(backdoor_acc_pre),
+            }
+            forget_summary["attack_post_forget"] = {
+                "mia_auc": float(mia_post.get("auc", 0.0)),
+                "mia_best_acc": float(mia_post.get("best_acc", 0.0)),
+                "backdoor_acc": float(backdoor_acc_post),
+            }
+            forget_summary["comparison_metrics"] = build_unlearning_comparison_metrics(
+                pre_accs,
+                post_accs,
+                args.target_client_id,
+                mia_pre=mia_pre,
+                mia_post=mia_post,
+            )
             if forget_result.get("metadata"):
                 forget_summary["method_metadata"] = forget_result["metadata"]
             
@@ -1277,18 +1554,6 @@ def run(args):
             with open(forget_summary_path, "w") as f:
                 json.dump(forget_summary, f, indent=2)
             print(f"遗忘效果汇总已保存到: {forget_summary_path}")
-
-
-            # 遗忘后攻击评估
-            print("\n============= 遗忘后攻击评估 =============")
-            mia_post = membership_inference_attack(global_model_forget, server.clients[args.target_client_id], args.device)
-            print(f"[遗忘后MIA] AUC: {mia_post['auc']:.4f}, 最佳准确率: {mia_post['best_acc']:.4f}, 最佳阈值: {mia_post['best_thr']:.2f}")
-            backdoor_acc_post = backdoor_attack(global_model_forget, server.clients[args.target_client_id], args.device)
-            print(f"[遗忘后后门攻击] 后门样本准确率: {backdoor_acc_post:.4f}")
-            # 保存攻击评估结果
-            with open(build_result_artifact_path("attack_post_forget", args, "txt"), "w") as f:
-                f.write(f"MIA AUC: {mia_post['auc']:.4f}\nMIA Best Acc: {mia_post['best_acc']:.4f}\nMIA Best Thr: {mia_post['best_thr']:.2f}\n")
-                f.write(f"Backdoor Acc: {backdoor_acc_post:.4f}\n")
 
             time_list.append(time.time()-start)
             return
@@ -1312,7 +1577,7 @@ def run(args):
             # 对重训练后的模型在所有客户端上做一次完整评估
             print("\n============= 重训练后评估（所有客户端） =============")
             rt_accs, rt_aucs, rt_avg_acc, rt_avg_auc, rt_std_acc, rt_std_auc = evaluate_on_all_clients(
-                retrain_model, server.clients, "重训练后评估", server=server
+                retrain_model, server.clients, "重训练后评估", server=server, target_client_id=args.target_client_id
             )
 
             # 保存评估结果
@@ -1323,15 +1588,15 @@ def run(args):
 
             # 对目标客户端做同样的攻击评估（MIA + 后门）
             print("\n============= 重训练后攻击评估（目标客户端） =============")
-            mia_rt = membership_inference_attack(retrain_model, server.clients[args.target_client_id], args.device)
-            print(f"[重训练后MIA] AUC: {mia_rt['auc']:.4f}, 最佳准确率: {mia_rt['best_acc']:.4f}, 最佳阈值: {mia_rt['best_thr']:.2f}")
-            backdoor_acc_rt = backdoor_attack(retrain_model, server.clients[args.target_client_id], args.device)
-            print(f"[重训练后后门攻击] 后门样本准确率: {backdoor_acc_rt:.4f}")
-
-            # 保存攻击评估结果
-            with open(build_result_artifact_path("attack_retrain_only", args, "txt"), "w") as f:
-                f.write(f"MIA AUC: {mia_rt['auc']:.4f}\nMIA Best Acc: {mia_rt['best_acc']:.4f}\nMIA Best Thr: {mia_rt['best_thr']:.2f}\n")
-                f.write(f"Backdoor Acc: {backdoor_acc_rt:.4f}\n")
+            attack_reference = build_membership_reference(server.clients[args.target_client_id])
+            run_attack_evaluation(
+                retrain_model,
+                server.clients[args.target_client_id],
+                args,
+                stage_name="retrain_only",
+                display_name="重训练后MIA",
+                attack_reference=attack_reference,
+            )
 
             # 保存重训练后的模型
             retrain_model_save_path = build_result_artifact_path("retrain_model", args, "pt")
@@ -1411,7 +1676,7 @@ def run(args):
         # 遗忘前评估：在所有客户端数据上测试准确率
         print("\n============= 遗忘前评估 =============")
         pre_accs, pre_aucs, pre_avg_acc, pre_avg_auc, pre_std_acc, pre_std_auc = evaluate_on_all_clients(
-            global_model, server.clients, "遗忘前评估", server=server)
+            global_model, server.clients, "遗忘前评估", server=server, target_client_id=args.target_client_id)
         
         # 保存遗忘前评估结果
         save_evaluation_results(pre_accs, pre_aucs, pre_avg_acc, pre_avg_auc, pre_std_acc, pre_std_auc, 
@@ -1419,14 +1684,15 @@ def run(args):
 
         # 遗忘前攻击评估
         print("\n============= 遗忘前攻击评估 =============")
-        mia_pre = membership_inference_attack(global_model, server.clients[args.target_client_id], args.device)
-        print(f"[遗忘前MIA] AUC: {mia_pre['auc']:.4f}, 最佳准确率: {mia_pre['best_acc']:.4f}, 最佳阈值: {mia_pre['best_thr']:.2f}")
-        backdoor_acc_pre = backdoor_attack(global_model, server.clients[args.target_client_id], args.device)
-        print(f"[遗忘前后门攻击] 后门样本准确率: {backdoor_acc_pre:.4f}")
-        # 保存攻击评估结果
-        with open(build_result_artifact_path("attack_pre_forget", args, "txt"), "w") as f:
-            f.write(f"MIA AUC: {mia_pre['auc']:.4f}\nMIA Best Acc: {mia_pre['best_acc']:.4f}\nMIA Best Thr: {mia_pre['best_thr']:.2f}\n")
-            f.write(f"Backdoor Acc: {backdoor_acc_pre:.4f}\n")
+        attack_reference = build_membership_reference(server.clients[args.target_client_id])
+        mia_pre, backdoor_acc_pre = run_attack_evaluation(
+            global_model,
+            server.clients[args.target_client_id],
+            args,
+            stage_name="pre_forget",
+            display_name="遗忘前MIA",
+            attack_reference=attack_reference,
+        )
 
         # 遗忘阶段：遗忘客户端{args.target_client_id}
         print(f"\n============= 开始遗忘阶段 =============")
@@ -1455,6 +1721,20 @@ def run(args):
                     args,
                     target_client_id=args.target_client_id,
                     server=server,
+                    round_evaluator=lambda model, round_idx: {
+                        "attack": membership_inference_attack(
+                            model,
+                            server.clients[args.target_client_id],
+                            args.device,
+                            reference_data=attack_reference,
+                            batch_size=args.batch_size,
+                        ),
+                        "backdoor_acc": backdoor_attack(
+                            model,
+                            server.clients[args.target_client_id],
+                            args.device,
+                        ),
+                    },
                 )
             
             elif args.forget_strategy == "fedu":
@@ -1476,6 +1756,20 @@ def run(args):
                     args,
                     target_client_id=args.target_client_id,
                     server=server,
+                    round_evaluator=lambda model, round_idx: {
+                        "attack": membership_inference_attack(
+                            model,
+                            server.clients[args.target_client_id],
+                            args.device,
+                            reference_data=attack_reference,
+                            batch_size=args.batch_size,
+                        ),
+                        "backdoor_acc": backdoor_attack(
+                            model,
+                            server.clients[args.target_client_id],
+                            args.device,
+                        ),
+                    },
                 )
             else:
                 raise ValueError(f"Unknown forgetting strategy: {args.forget_strategy}")
@@ -1497,11 +1791,21 @@ def run(args):
         # 遗忘后评估：在所有客户端数据上测试准确率
         print("\n============= 遗忘后评估 =============")
         post_accs, post_aucs, post_avg_acc, post_avg_auc, post_std_acc, post_std_auc = evaluate_on_all_clients(
-            global_model_forget, server.clients, "遗忘后评估", server=server)
+            global_model_forget, server.clients, "遗忘后评估", server=server, target_client_id=args.target_client_id)
         
         # 保存遗忘后评估结果
         save_evaluation_results(post_accs, post_aucs, post_avg_acc, post_avg_auc, post_std_acc, post_std_auc, 
                               "post_forget", args)
+
+        print("\n============= 遗忘后恢复前攻击评估 =============")
+        mia_post, backdoor_acc_post = run_attack_evaluation(
+            global_model_forget,
+            server.clients[args.target_client_id],
+            args,
+            stage_name="post_forget",
+            display_name="遗忘后MIA",
+            attack_reference=attack_reference,
+        )
 
         # 计算遗忘效果（以遗忘前准确率为基准）
         print("\n============= 遗忘效果分析 =============")
@@ -1528,7 +1832,7 @@ def run(args):
             or args.forget_strategy == "sifu"
         )
         if args.forget_strategy == "fedosd" and skip_external_recovery:
-            recovery_rounds = getattr(args, 'fedosd_recovery_rounds', 0)
+            recovery_rounds = method_recovery_rounds
         elif args.forget_strategy == "sifu" and skip_external_recovery:
             recovery_rounds = method_recovery_rounds
         else:
@@ -1546,9 +1850,9 @@ def run(args):
                 print("FedOSD 对比实现已在遗忘函数内部完成 post-training，外层通用恢复不再重复执行。")
             elif args.forget_strategy == "fedau":
                 print("FedAU 默认不执行额外服务器恢复阶段，以保持与官方方法更一致。")
-            elif args.forget_strategy == "sifu":
+            elif args.forget_strategy in {"sifu", "fedosd"}:
                 if method_post_recovery_model is not None:
-                    print("SIFU 对比实现已在方法内部完成回跳后的恢复训练，外层通用恢复不再重复执行。")
+                    print("方法内部已完成恢复训练，外层通用恢复不再重复执行。")
                     server.global_model = method_post_recovery_model
                     restored = restore_client_buffer_states(
                         server,
@@ -1564,7 +1868,7 @@ def run(args):
 
                     print("\n============= 恢复后评估 =============")
                     recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = evaluate_on_all_clients(
-                        server.global_model, server.clients, "恢复后评估", server=server)
+                        server.global_model, server.clients, "恢复后评估", server=server, target_client_id=args.target_client_id)
                     save_evaluation_results(
                         recovery_accs,
                         recovery_aucs,
@@ -1577,9 +1881,18 @@ def run(args):
                     )
                     recovery_effect = recovery_avg_acc - post_avg_acc
                     print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
+                    print("\n============= 恢复后攻击评估 =============")
+                    run_attack_evaluation(
+                        server.global_model,
+                        server.clients[args.target_client_id],
+                        args,
+                        stage_name="post_recovery",
+                        display_name="恢复后MIA",
+                        attack_reference=attack_reference,
+                    )
                     global_model_forget = server.global_model
                 else:
-                    print("SIFU 已按当前配置跳过恢复阶段。")
+                    print("方法已按当前配置跳过恢复阶段。")
         else:
             print(f"\n============= 开始恢复阶段 =============")
             print(f"其他客户端性能变化: {others_rel_change_avg*100:.2f}%")
@@ -1589,6 +1902,28 @@ def run(args):
             
             # 使用遗忘后的模型进行恢复训练
             server.global_model = global_model_forget
+            def recovery_round_evaluator(model, round_idx):
+                mia_round = membership_inference_attack(
+                    model,
+                    server.clients[args.target_client_id],
+                    args.device,
+                    reference_data=attack_reference,
+                    batch_size=args.batch_size,
+                )
+                backdoor_round = backdoor_attack(
+                    model,
+                    server.clients[args.target_client_id],
+                    args.device,
+                )
+                print(
+                    f"[恢复第{round_idx}轮攻击评估] MIA AUC: {mia_round['auc']:.4f}, "
+                    f"后门准确率: {backdoor_round:.4f}"
+                )
+                return {
+                    "attack": mia_round,
+                    "backdoor_acc": float(backdoor_round),
+                }
+
             use_fu_adaptive_recovery = (
                 args.forget_strategy == "gradient_reversal"
                 and getattr(args, "fu_select_best_recovery", True)
@@ -1599,6 +1934,7 @@ def run(args):
                 recovery_rounds=recovery_rounds,
                 capture_snapshots=use_fu_adaptive_recovery,
                 lr_scale=getattr(args, "fu_recovery_lr_scale", 1.0),
+                round_evaluator=recovery_round_evaluator,
             )
 
             if use_fu_adaptive_recovery:
@@ -1634,6 +1970,15 @@ def run(args):
                         "post_recovery",
                         args,
                     )
+                    print("\n============= 恢复后攻击评估 =============")
+                    run_attack_evaluation(
+                        server.global_model,
+                        server.clients[args.target_client_id],
+                        args,
+                        stage_name="post_recovery",
+                        display_name="恢复后MIA",
+                        attack_reference=attack_reference,
+                    )
                     print(f"恢复效果: 平均准确率提升 {recovery_effect:.4f} ({recovery_effect/post_avg_acc*100:.2f}%)")
                     global_model_forget = server.global_model
                 else:
@@ -1652,11 +1997,20 @@ def run(args):
                 # 恢复后评估
                 print("\n============= 恢复后评估 =============")
                 recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc = evaluate_on_all_clients(
-                    server.global_model, server.clients, "恢复后评估", server=server)
+                    server.global_model, server.clients, "恢复后评估", server=server, target_client_id=args.target_client_id)
                 
                 # 保存恢复后评估结果
                 save_evaluation_results(recovery_accs, recovery_aucs, recovery_avg_acc, recovery_avg_auc, recovery_std_acc, recovery_std_auc, 
                                       "post_recovery", args)
+                print("\n============= 恢复后攻击评估 =============")
+                run_attack_evaluation(
+                    server.global_model,
+                    server.clients[args.target_client_id],
+                    args,
+                    stage_name="post_recovery",
+                    display_name="恢复后MIA",
+                    attack_reference=attack_reference,
+                )
                 
                 # 计算恢复效果
                 recovery_effect = recovery_avg_acc - post_avg_acc
@@ -1696,6 +2050,23 @@ def run(args):
                 else "external_server_recovery"
             )
         }
+        forget_summary["attack_pre"] = {
+            "mia_auc": float(mia_pre.get("auc", 0.0)),
+            "mia_best_acc": float(mia_pre.get("best_acc", 0.0)),
+            "backdoor_acc": float(backdoor_acc_pre),
+        }
+        forget_summary["attack_post_forget"] = {
+            "mia_auc": float(mia_post.get("auc", 0.0)),
+            "mia_best_acc": float(mia_post.get("best_acc", 0.0)),
+            "backdoor_acc": float(backdoor_acc_post),
+        }
+        forget_summary["comparison_metrics"] = build_unlearning_comparison_metrics(
+            pre_accs,
+            post_accs,
+            args.target_client_id,
+            mia_pre=mia_pre,
+            mia_post=mia_post,
+        )
         if forget_result.get("metadata"):
             forget_summary["method_metadata"] = forget_result["metadata"]
         
@@ -1712,18 +2083,6 @@ def run(args):
         with open(forget_summary_path, "w") as f:
             json.dump(forget_summary, f, indent=2)
         print(f"遗忘效果汇总已保存到: {forget_summary_path}")
-
-
-        # 遗忘后攻击评估
-        print("\n============= 遗忘后攻击评估 =============")
-        mia_post = membership_inference_attack(global_model_forget, server.clients[args.target_client_id], args.device)
-        print(f"[遗忘后MIA] AUC: {mia_post['auc']:.4f}, 最佳准确率: {mia_post['best_acc']:.4f}, 最佳阈值: {mia_post['best_thr']:.2f}")
-        backdoor_acc_post = backdoor_attack(global_model_forget, server.clients[args.target_client_id], args.device)
-        print(f"[遗忘后后门攻击] 后门样本准确率: {backdoor_acc_post:.4f}")
-        # 保存攻击评估结果
-        with open(build_result_artifact_path("attack_post_forget", args, "txt"), "w") as f:
-            f.write(f"MIA AUC: {mia_post['auc']:.4f}\nMIA Best Acc: {mia_post['best_acc']:.4f}\nMIA Best Thr: {mia_post['best_thr']:.2f}\n")
-            f.write(f"Backdoor Acc: {backdoor_acc_post:.4f}\n")
 
         time_list.append(time.time()-start)
 
@@ -1751,8 +2110,12 @@ if __name__ == "__main__":
     parser.add_argument('-ncl', "--num_classes", type=int, default=10)
     parser.add_argument('-m', "--model", type=str, default="ResNet18")
     parser.add_argument('-lbs', "--batch_size", type=int, default=32)
-    parser.add_argument('-lr', "--local_learning_rate", type=float, default=0.005,
+    parser.add_argument('-lr', "--local_learning_rate", type=float, default=0.02,
                         help="Local learning rate")
+    parser.add_argument('--sgd_momentum', type=float, default=None,
+                        help="SGD momentum. Defaults to 0.9 on CIFAR and 0.0 otherwise.")
+    parser.add_argument('--weight_decay', type=float, default=None,
+                        help="Weight decay. Defaults to 5e-4 on CIFAR and 0.0 otherwise.")
     parser.add_argument('-ld', "--learning_rate_decay", type=str2bool, default=False)
     parser.add_argument('-ldg', "--learning_rate_decay_gamma", type=float, default=0.99)
     parser.add_argument('-gr', "--global_rounds", type=int, default=100)

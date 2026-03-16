@@ -129,7 +129,7 @@ def _evaluate_global_model(server):
     return avg_acc, avg_auc
 
 
-def _run_recovery_rounds(server, round_records, target_client_id):
+def _run_recovery_rounds(server, round_records, target_client_id, round_evaluator=None):
     if server is None:
         return [], None, 0
 
@@ -167,12 +167,15 @@ def _run_recovery_rounds(server, round_records, target_client_id):
         server.aggregate_parameters()
 
         avg_acc, avg_auc = _evaluate_global_model(server)
-        recovery_results.append({
+        round_result = {
             "round": int(local_round_idx),
             "scheduled_round": int(record.get("round", -1)),
             "test_acc": avg_acc,
             "test_auc": avg_auc,
-        })
+        }
+        if round_evaluator is not None:
+            round_result.update(round_evaluator(server.global_model, local_round_idx) or {})
+        recovery_results.append(round_result)
         executed_rounds += 1
 
     post_recovery_client_buffer_states = _clone_client_buffer_states(server)
@@ -276,7 +279,7 @@ def _add_model_noise(model, sigma):
             param.add_(torch.normal(0.0, sigma, size=param.shape, device=param.device))
 
 
-def forget_client_with_sifu(global_model, clients, args, target_client_id=0, server=None):
+def forget_client_with_sifu(global_model, clients, args, target_client_id=0, server=None, round_evaluator=None):
     if getattr(args, "algorithm", "") != "FedAvg":
         raise ValueError("SIFU 对比实现当前仅支持 FedAvg，以保持与论文设定更一致。")
 
@@ -331,6 +334,7 @@ def forget_client_with_sifu(global_model, clients, args, target_client_id=0, ser
             server,
             scheduled_round_records,
             target_client_id=target_client_id,
+            round_evaluator=round_evaluator,
         )
         recovery_rounds = int(executed_rounds)
         post_recovery_model = copy.deepcopy(server.global_model)
@@ -346,6 +350,7 @@ def forget_client_with_sifu(global_model, clients, args, target_client_id=0, ser
             recovery_results = server.recovery_training(
                 target_client_id=target_client_id,
                 recovery_rounds=recovery_rounds,
+                round_evaluator=round_evaluator,
             )
             post_recovery_model = copy.deepcopy(server.global_model)
             post_recovery_client_buffer_states = _clone_client_buffer_states(server)

@@ -46,6 +46,8 @@ class Server(object):
 
         self.rs_test_acc = []
         self.rs_test_auc = []
+        self.rs_test_acc_global_buffers = []
+        self.rs_test_auc_global_buffers = []
         self.rs_train_loss = []
         self.best_test_acc = float('-inf')
         self.best_eval_round = None
@@ -275,6 +277,10 @@ class Server(object):
             with h5py.File(file_path, 'w') as hf:
                 hf.create_dataset('rs_test_acc', data=self.rs_test_acc)
                 hf.create_dataset('rs_test_auc', data=self.rs_test_auc)
+                if len(self.rs_test_acc_global_buffers):
+                    hf.create_dataset('rs_test_acc_global_buffers', data=self.rs_test_acc_global_buffers)
+                if len(self.rs_test_auc_global_buffers):
+                    hf.create_dataset('rs_test_auc_global_buffers', data=self.rs_test_auc_global_buffers)
                 hf.create_dataset('rs_train_loss', data=self.rs_train_loss)
 
     def save_item(self, item, item_name):
@@ -285,7 +291,19 @@ class Server(object):
     def load_item(self, item_name):
         return torch.load(os.path.join(self.save_folder_name, "server_" + item_name + ".pt"))
 
-    def test_metrics(self):
+    def _set_client_eval_parameters(self, client, copy_buffers=False):
+        if hasattr(client, 'set_parameters'):
+            if hasattr(self, 'global_c'):
+                client.set_parameters(self.global_model, global_c=self.global_c, copy_buffers=copy_buffers)
+            else:
+                client.set_parameters(self.global_model, copy_buffers=copy_buffers)
+        else:
+            if copy_buffers:
+                client.model.load_state_dict(self.global_model.state_dict(), strict=True)
+            else:
+                client.model = copy.deepcopy(self.global_model)
+
+    def test_metrics(self, copy_buffers=False, restore_client_state=False):
         if self.eval_new_clients and self.num_new_clients > 0:
             self.fine_tuning_new_clients()
             return self.test_metrics_new_clients()
@@ -294,7 +312,14 @@ class Server(object):
         tot_correct = []
         tot_auc = []
         for c in self.clients:
+            original_state = None
+            if copy_buffers:
+                if restore_client_state:
+                    original_state = self._cpu_state_dict(c.model.state_dict())
+                self._set_client_eval_parameters(c, copy_buffers=True)
             ct, ns, auc = c.test_metrics()
+            if original_state is not None:
+                c.model.load_state_dict(original_state, strict=True)
             tot_correct.append(ct*1.0)
             tot_auc.append(auc*ns)
             num_samples.append(ns)
@@ -321,16 +346,23 @@ class Server(object):
     # evaluate selected clients
     def evaluate(self, acc=None, loss=None):
         stats = self.test_metrics()
+        stats_global = self.test_metrics(copy_buffers=True, restore_client_state=True)
         stats_train = self.train_metrics()
 
         test_acc = sum(stats[2])*1.0 / sum(stats[1])
         test_auc = sum(stats[3])*1.0 / sum(stats[1])
+        test_acc_global = sum(stats_global[2])*1.0 / sum(stats_global[1])
+        test_auc_global = sum(stats_global[3])*1.0 / sum(stats_global[1])
         train_loss = sum(stats_train[2])*1.0 / sum(stats_train[1])
         accs = [a / n for a, n in zip(stats[2], stats[1])]
         aucs = [a / n for a, n in zip(stats[3], stats[1])]
+        accs_global = [a / n for a, n in zip(stats_global[2], stats_global[1])]
+        aucs_global = [a / n for a, n in zip(stats_global[3], stats_global[1])]
         
         if acc == None:
             self.rs_test_acc.append(test_acc)
+            self.rs_test_acc_global_buffers.append(test_acc_global)
+            self.rs_test_auc_global_buffers.append(test_auc_global)
             self._cache_best_eval_snapshot(test_acc)
         else:
             acc.append(test_acc)
@@ -342,10 +374,14 @@ class Server(object):
 
         print("Averaged Train Loss: {:.4f}".format(train_loss))
         print("Averaged Test Accuracy: {:.4f}".format(test_acc))
+        print("Averaged Test Accuracy (global buffers): {:.4f}".format(test_acc_global))
         print("Averaged Test AUC: {:.4f}".format(test_auc))
+        print("Averaged Test AUC (global buffers): {:.4f}".format(test_auc_global))
         # self.print_(test_acc, train_acc, train_loss)
         print("Std Test Accuracy: {:.4f}".format(np.std(accs)))
+        print("Std Test Accuracy (global buffers): {:.4f}".format(np.std(accs_global)))
         print("Std Test AUC: {:.4f}".format(np.std(aucs)))
+        print("Std Test AUC (global buffers): {:.4f}".format(np.std(aucs_global)))
 
     def print_(self, test_acc, test_auc, train_loss):
         print("Average Test Accuracy: {:.4f}".format(test_acc))

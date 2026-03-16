@@ -234,7 +234,8 @@ class FedAvg(Server):
 
         return self.global_model
 
-    def recovery_training(self, target_client_id, recovery_rounds=5, capture_snapshots=False, lr_scale=1.0):
+    def recovery_training(self, target_client_id, recovery_rounds=5, capture_snapshots=False, lr_scale=1.0,
+                          round_evaluator=None):
         """
         恢复阶段训练：排除目标客户端，使用其他客户端数据进行训练
         
@@ -314,6 +315,8 @@ class FedAvg(Server):
                     'test_auc': self.rs_test_auc[-1] if self.rs_test_auc else 0,
                     'train_loss': self.rs_train_loss[-1] if self.rs_train_loss else 0
                 }
+                if round_evaluator is not None:
+                    round_result.update(round_evaluator(self.global_model, i + 1) or {})
                 if capture_snapshots:
                     round_result["snapshot"] = self._capture_recovery_snapshot()
                 recovery_results.append(round_result)

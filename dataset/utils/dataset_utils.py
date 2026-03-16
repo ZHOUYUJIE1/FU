@@ -60,6 +60,65 @@ def check(config_path, train_path, test_path, num_clients, niid=False,
 
     return False
 
+
+def _dirichlet_balanced_split(dataset_label, num_clients, num_classes, least_samples):
+    """Dirichlet label skew with near-equal client sample counts."""
+    num_samples = len(dataset_label)
+    target_sizes = np.full(num_clients, num_samples // num_clients, dtype=int)
+    target_sizes[:num_samples % num_clients] += 1
+
+    idx_batch = [[] for _ in range(num_clients)]
+    client_remaining = target_sizes.copy()
+
+    for k in range(num_classes):
+        idx_k = np.where(dataset_label == k)[0]
+        np.random.shuffle(idx_k)
+        if len(idx_k) == 0:
+            continue
+
+        raw_proportions = np.random.dirichlet(np.repeat(alpha, num_clients))
+        weighted = raw_proportions * np.maximum(client_remaining, 1e-12)
+        if weighted.sum() <= 0:
+            weighted = np.maximum(client_remaining, 1e-12)
+        weighted = weighted / weighted.sum()
+
+        counts = np.floor(weighted * len(idx_k)).astype(int)
+        counts = np.minimum(counts, client_remaining)
+
+        shortfall = int(len(idx_k) - counts.sum())
+        while shortfall > 0:
+            residual_capacity = client_remaining - counts
+            eligible = np.where(residual_capacity > 0)[0]
+            if len(eligible) == 0:
+                raise RuntimeError("Balanced Dirichlet allocation ran out of residual capacity.")
+
+            residual_weights = raw_proportions[eligible] * residual_capacity[eligible]
+            if residual_weights.sum() <= 0:
+                residual_weights = residual_capacity[eligible].astype(np.float64)
+            residual_weights = residual_weights / residual_weights.sum()
+            chosen = np.random.choice(eligible, p=residual_weights)
+            counts[chosen] += 1
+            shortfall -= 1
+
+        start = 0
+        for client_id, count in enumerate(counts):
+            if count <= 0:
+                continue
+            idx_batch[client_id].extend(idx_k[start:start + count].tolist())
+            client_remaining[client_id] -= count
+            start += count
+
+    min_size = min(len(indices) for indices in idx_batch)
+    if min_size < least_samples:
+        raise ValueError(
+            f"Balanced Dirichlet split below minimum size: min_size={min_size}, least_samples={least_samples}"
+        )
+
+    for client_indices in idx_batch:
+        np.random.shuffle(client_indices)
+
+    return idx_batch
+
 def separate_data(data, num_clients, num_classes, niid=False, balance=False, partition=None, class_per_client=None):
     X = [[] for _ in range(num_clients)]
     y = [[] for _ in range(num_clients)]
@@ -110,27 +169,22 @@ def separate_data(data, num_clients, num_classes, niid=False, balance=False, par
                 class_num_per_client[client] -= 1
 
     elif partition == "dir":
-        # https://github.com/IBM/probabilistic-federated-neural-matching/blob/master/experiment.py
-        min_size = 0
-        K = num_classes
-        N = len(dataset_label)
-
         try_cnt = 1
-        while min_size < least_samples:
-            if try_cnt > 1:
-                print(f'Client data size does not meet the minimum requirement {least_samples}. Try allocating again for the {try_cnt}-th time.')
-
-            idx_batch = [[] for _ in range(num_clients)]
-            for k in range(K):
-                idx_k = np.where(dataset_label == k)[0]
-                np.random.shuffle(idx_k)
-                proportions = np.random.dirichlet(np.repeat(alpha, num_clients))
-                proportions = np.array([p*(len(idx_j)<N/num_clients) for p,idx_j in zip(proportions,idx_batch)])
-                proportions = proportions/proportions.sum()
-                proportions = (np.cumsum(proportions)*len(idx_k)).astype(int)[:-1]
-                idx_batch = [idx_j + idx.tolist() for idx_j,idx in zip(idx_batch,np.split(idx_k,proportions))]
-                min_size = min([len(idx_j) for idx_j in idx_batch])
-            try_cnt += 1
+        while True:
+            try:
+                idx_batch = _dirichlet_balanced_split(
+                    dataset_label,
+                    num_clients=num_clients,
+                    num_classes=num_classes,
+                    least_samples=least_samples,
+                )
+                break
+            except ValueError:
+                print(
+                    f'Client data size does not meet the minimum requirement {least_samples}. '
+                    f'Try allocating again for the {try_cnt}-th time.'
+                )
+                try_cnt += 1
 
         for j in range(num_clients):
             dataidx_map[j] = idx_batch[j]
