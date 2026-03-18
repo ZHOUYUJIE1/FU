@@ -1,0 +1,16 @@
+level,method,pre_mia_auc_targetlr,post_mia_auc_targetlr,delta_auc_post_minus_pre
+mild,FU,0.5206,0.5041,-0.0165
+mild,FedAU,0.5210,0.4885,-0.0325
+mild,FedCSA,0.5206,0.5171,-0.0034
+mild,FedOSD,0.5206,0.5074,-0.0132
+mild,Retrain,--,0.5049,--
+moderate,FU,0.5077,0.5146,+0.0069
+moderate,FedAU,0.5099,0.4989,-0.0110
+moderate,FedCSA,0.5077,0.5043,-0.0034
+moderate,FedOSD,0.5077,0.4900,-0.0177
+moderate,Retrain,--,0.4766,--
+severe,FU,0.4856,0.5151,+0.0295
+severe,FedAU,0.5044,0.5128,+0.0084
+severe,FedCSA,0.4856,0.5100,+0.0244
+severe,FedOSD,0.4856,0.4860,+0.0004
+severe,Retrain,--,0.4693,--

@@ -1,0 +1,8 @@
+setting,method,pre_mia_auc_targetlr,post_mia_auc_targetlr,delta_auc_post_minus_pre
+seed321 severe,FedAU,0.4896,0.5002,+0.0107
+seed321 severe,FedCSA,0.5210,0.4901,-0.0309
+seed321 severe,FedOSD,0.5210,0.4896,-0.0314
+seed321 severe,FU,0.5210,0.5046,-0.0164
+seed321 severe,Retrain,--,0.4885,--
+seed321 severe,FU (r200),0.5225,0.4678,-0.0547
+seed321 severe,Retrain (r200),--,0.5175,--

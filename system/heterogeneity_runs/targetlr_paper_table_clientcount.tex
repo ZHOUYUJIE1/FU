@@ -1,0 +1,19 @@
+\begin{table}[t]
+\centering
+\caption{Target-LR membership inference results under different client counts in the severe setting (seed321).}
+\label{tab:targetlr_mia_clientcount}
+\begin{tabular}{llcc}
+\toprule
+Client \# & Method & Post MIA AUC $\downarrow$ & $\Delta$AUC $\downarrow$ \\
+\midrule
+20 & FU & \textbf{0.4862} & -0.0076 \\
+ & Retrain & 0.4899 & -- \\
+\midrule
+50 & FU & \textbf{0.4908} & -0.0789 \\
+ & Retrain & 0.5167 & -- \\
+\midrule
+100 & FU & 0.5387 & +0.1172 \\
+ & Retrain & \textbf{0.4971} & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

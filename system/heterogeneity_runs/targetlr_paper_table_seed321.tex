@@ -1,0 +1,18 @@
+\begin{table}[t]
+\centering
+\caption{Target-LR membership inference results for the seed321 severe setting.}
+\label{tab:targetlr_mia_seed321}
+\begin{tabular}{lccc}
+\toprule
+Method & Pre MIA AUC $\downarrow$ & Post MIA AUC $\downarrow$ & $\Delta$AUC $\downarrow$ \\
+\midrule
+FedAU & 0.4896 & 0.5002 & +0.0107 \\
+FedCSA & 0.5210 & 0.4901 & -0.0309 \\
+FedOSD & 0.5210 & 0.4896 & -0.0314 \\
+FU & 0.5210 & 0.5046 & -0.0164 \\
+Retrain & -- & 0.4885 & -- \\
+FU (r200) & 0.5225 & \textbf{0.4678} & -0.0547 \\
+Retrain (r200) & -- & 0.5175 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,7 @@
+client_count,method,pre_mia_auc_targetlr,post_mia_auc_targetlr,delta_auc_post_minus_pre
+20,FU,0.4938,0.4862,-0.0076
+20,Retrain,--,0.4899,--
+50,FU,0.5697,0.4908,-0.0789
+50,Retrain,--,0.5167,--
+100,FU,0.4215,0.5387,+0.1172
+100,Retrain,--,0.4971,--

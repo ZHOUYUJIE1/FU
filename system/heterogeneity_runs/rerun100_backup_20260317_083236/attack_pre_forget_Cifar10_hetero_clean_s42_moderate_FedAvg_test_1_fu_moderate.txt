@@ -1,0 +1,38 @@
+MIA AUC: 0.5013
+MIA Best Acc: 0.5070
+MIA Best Thr: 0.419876
+MIA Score Name: true_class_confidence
+MIA Fixed Thr: 0.500000
+MIA Fixed Acc: 0.5017
+MIA Best Precision: 0.5077
+MIA Best Recall: 0.4613
+MIA Best F1: 0.4834
+MIA Fixed Precision: 0.5027
+MIA Fixed Recall: 0.3067
+MIA Fixed F1: 0.3810
+MIA True-Class Confidence AUC: 0.5013
+MIA Negative-Loss AUC: 0.5013
+MIA Max-Confidence AUC: 0.4998
+MIA Correctness AUC: 0.4997
+MIA Flipped Primary AUC: 0.4987
+MIA Member Source: target_client_train_clean
+MIA Nonmember Source: target_client_test_clean
+MIA Sample Count Per Split: 1500
+Backdoor Acc: 0.0833
+Backdoor Trigger Applied: 1
+Target Client ASR (Local Train): 0.0729
+Target Client Clean Acc (Local Train): 0.6458
+Target Client Attack Samples (Local Train): 192
+MIA Client-Oriented Enabled: 1
+MIA Client Count: 10
+MIA Forgotten AUC Mean: 0.5013
+MIA Retained AUC Mean: 0.5003
+MIA Forgotten Recall Mean: 0.4613
+MIA Retained Recall Mean: 0.6006
+MIA Forgotten-Retained AUC Gap: 0.0009518024691357319
+Backdoor Client-Oriented Enabled: 1
+Backdoor Global ASR Mean: 0.0740
+Backdoor Global Clean Acc Mean: 0.4562
+Backdoor Forgotten ASR Mean: 0.0833
+Backdoor Retained ASR Mean: 0.0729
+Backdoor Retained Clean Acc Mean: 0.4363

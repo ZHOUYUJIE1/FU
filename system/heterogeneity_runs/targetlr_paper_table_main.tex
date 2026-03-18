@@ -1,0 +1,28 @@
+\begin{table*}[t]
+\centering
+\caption{Target-LR membership inference results under CIFAR-10 Dirichlet heterogeneity (seed 42). Lower post-unlearning MIA AUC is better. $\Delta$AUC denotes post minus pre.}
+\label{tab:targetlr_mia_seed42}
+\begin{tabular}{llccc}
+\toprule
+Level & Method & Pre MIA AUC $\downarrow$ & Post MIA AUC $\downarrow$ & $\Delta$AUC $\downarrow$ \\
+\midrule
+Mild & FU & 0.5206 & 0.5041 & -0.0165 \\
+ & FedAU & 0.5210 & \textbf{0.4885} & -0.0325 \\
+ & FedCSA & 0.5206 & 0.5171 & -0.0034 \\
+ & FedOSD & 0.5206 & 0.5074 & -0.0132 \\
+ & Retrain & -- & 0.5049 & -- \\
+\midrule
+Moderate & FU & 0.5077 & 0.5146 & +0.0069 \\
+ & FedAU & 0.5099 & 0.4989 & -0.0110 \\
+ & FedCSA & 0.5077 & 0.5043 & -0.0034 \\
+ & FedOSD & 0.5077 & 0.4900 & -0.0177 \\
+ & Retrain & -- & \textbf{0.4766} & -- \\
+\midrule
+Severe & FU & 0.4856 & 0.5151 & +0.0295 \\
+ & FedAU & 0.5044 & 0.5128 & +0.0084 \\
+ & FedCSA & 0.4856 & 0.5100 & +0.0244 \\
+ & FedOSD & 0.4856 & 0.4860 & +0.0004 \\
+ & Retrain & -- & \textbf{0.4693} & -- \\
+\bottomrule
+\end{tabular}
+\end{table*}

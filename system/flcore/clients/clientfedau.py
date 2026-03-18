@@ -74,6 +74,11 @@ class _FedAUMixin:
                 is_train=True,
                 few_shot=self.few_shot,
             )
+            # Reuse the base-client poisoning switch so FedAU follows the same ASR protocol.
+            base_data = self._maybe_apply_backdoor_train_poison(
+                base_data,
+                apply_train_transform=True,
+            )
             rng = np.random.default_rng(self._fedau_seed)
             fixed_wrong_labels = []
             for _, label in base_data:

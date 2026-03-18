@@ -1762,11 +1762,18 @@ class GradientReversalForgetting:
                 data = data.to(self.device)
             target = target.to(self.device)
 
-            output = client.model(data)
-            loss = client.loss(output, target)
-
             client.optimizer.zero_grad()
-            loss.backward()
+            if self.device.type == 'cuda':
+                # Gradient probes only use a few batches, so we prefer the more
+                # stable non-cuDNN path here to avoid intermittent algorithm failures.
+                with torch.backends.cudnn.flags(enabled=False, benchmark=False, deterministic=False):
+                    output = client.model(data)
+                    loss = client.loss(output, target)
+                    loss.backward()
+            else:
+                output = client.model(data)
+                loss = client.loss(output, target)
+                loss.backward()
 
             grad_idx = 0
             for param in client.model.parameters():
@@ -4000,6 +4007,9 @@ def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, s
     print(f"FedOSD遗忘轮数: {unlearn_rounds}, 本地/服务端学习率: {base_lr}")
     print(f"FedOSD后训练轮数: {recovery_rounds}, 后训练学习率: {recovery_lr}")
 
+    unlearning_round_online_stats = []
+    recovery_round_online_stats = []
+
     for round_idx in range(unlearn_rounds):
         online_clients = _sample_fedosd_online_clients(
             clients,
@@ -4008,6 +4018,11 @@ def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, s
         )
         online_ids = [client.id for client in online_clients]
         print(f"FedOSD遗忘轮 {round_idx + 1}/{unlearn_rounds}，在线客户端: {online_ids}")
+        unlearning_round_online_stats.append({
+            "round": int(round_idx + 1),
+            "online_client_ids": [int(client_id) for client_id in online_ids],
+            "num_online_clients": int(len(online_ids)),
+        })
 
         gu_stack, gr_stack, local_models, buffer_weights = _run_fedosd_local_round(
             updated_model,
@@ -4047,6 +4062,11 @@ def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, s
 
             online_ids = [client.id for client in online_clients]
             print(f"FedOSD后训练轮 {round_idx + 1}/{recovery_rounds}，在线客户端: {online_ids}")
+            recovery_round_online_stats.append({
+                "round": int(round_idx + 1),
+                "online_client_ids": [int(client_id) for client_id in online_ids],
+                "num_online_clients": int(len(online_ids)),
+            })
 
             _, gr_stack, local_models, buffer_weights = _run_fedosd_local_round(
                 updated_model,
@@ -4091,6 +4111,8 @@ def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, s
                 "test_acc": None,
                 "test_auc": None,
                 "train_loss": None,
+                "online_client_ids": [int(client_id) for client_id in online_ids],
+                "num_online_clients": int(len(online_ids)),
             }
             if round_evaluator is not None:
                 round_result.update(round_evaluator(updated_model, round_idx + 1) or {})
@@ -4110,6 +4132,10 @@ def forget_client_with_fedosd(global_model, clients, args, target_client_id=0, s
         "recovery_results": recovery_results,
         "recovery_rounds": len(recovery_results),
         "recovery_stage": "internal_fedosd_post_training" if recovery_results else "skipped_for_fedosd",
+        "metadata": {
+            "fedosd_unlearning_round_online_stats": unlearning_round_online_stats,
+            "fedosd_recovery_round_online_stats": recovery_round_online_stats,
+        },
     }
 
 

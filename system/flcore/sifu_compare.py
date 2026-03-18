@@ -172,6 +172,10 @@ def _run_recovery_rounds(server, round_records, target_client_id, round_evaluato
             "scheduled_round": int(record.get("round", -1)),
             "test_acc": avg_acc,
             "test_auc": avg_auc,
+            "selected_client_ids": [int(client_id) for client_id in scheduled_ids],
+            "uploaded_client_ids": [int(client_id) for client_id in server.uploaded_ids],
+            "num_selected_clients": int(len(scheduled_ids)),
+            "num_uploaded_clients": int(len(server.uploaded_ids)),
         }
         if round_evaluator is not None:
             round_result.update(round_evaluator(server.global_model, local_round_idx) or {})

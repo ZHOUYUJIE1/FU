@@ -86,6 +86,8 @@ MAIN_DEFAULTS = {
     "num_clients": 10,
     "times": 1,
     "eval_gap": 1,
+    "mia_pre_model_source": "target_local_last",
+    "save_target_local_model_last": True,
     "random_seed": 42,
     "result_tag": "",
     "forget_strategy": "sifu",
@@ -119,6 +121,10 @@ MAIN_DEFAULTS = {
     "fu_recovery_target_penalty": 0.5,
     "fu_recovery_lr_scale": 1.0,
     "protection_level": "weak",
+    "backdoor_fedosd_target_client": False,
+    "enable_backdoor_attack": True,
+    "backdoor_eval_source": "test",
+    "backdoor_eval_attack_portion": 1.0,
     "target_client_id": 5,
     "load_saved_model": False,
     "saved_model_path": "/home/siguangchen/zyj/FUcopy/system/results/exp_configs/global_model_Cifar10_FedAvg_test_1_fedau.pt",
@@ -141,6 +147,8 @@ MAIN_ARG_FLAGS = {
     "num_clients": "--num_clients",
     "times": "--times",
     "eval_gap": "--eval_gap",
+    "mia_pre_model_source": "--mia_pre_model_source",
+    "save_target_local_model_last": "--save_target_local_model_last",
     "random_seed": "--random_seed",
     "result_tag": "--result_tag",
     "forget_strategy": "--forget_strategy",
@@ -174,6 +182,10 @@ MAIN_ARG_FLAGS = {
     "fu_recovery_target_penalty": "--fu_recovery_target_penalty",
     "fu_recovery_lr_scale": "--fu_recovery_lr_scale",
     "protection_level": "--protection_level",
+    "backdoor_fedosd_target_client": "--backdoor_fedosd_target_client",
+    "enable_backdoor_attack": "--enable_backdoor_attack",
+    "backdoor_eval_source": "--backdoor_eval_source",
+    "backdoor_eval_attack_portion": "--backdoor_eval_attack_portion",
     "target_client_id": "--target_client_id",
     "load_saved_model": "--load_saved_model",
     "saved_model_path": "--saved_model_path",
@@ -228,6 +240,10 @@ def parse_args():
     parser.add_argument("--join-ratio", type=float, default=1.0)
     parser.add_argument("--times", type=int, default=1)
     parser.add_argument("--eval-gap", type=int, default=1)
+    parser.add_argument("--mia-pre-model-source", type=str, default="target_local_last",
+                        choices=["target_local_last", "global_model"])
+    parser.add_argument("--save-target-local-model-last", type=str, default="true",
+                        choices=["true", "false"])
     parser.add_argument("--target-client-id", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
 
@@ -277,6 +293,12 @@ def parse_args():
     parser.add_argument("--fu-recovery-target-penalty", type=float, default=0.5)
     parser.add_argument("--fu-recovery-lr-scale", type=float, default=1.0)
     parser.add_argument("--protection-level", type=str, default="weak", choices=["strong", "moderate", "weak"])
+    parser.add_argument("--backdoor-fedosd-target-client", type=str, default="false",
+                        choices=["true", "false"])
+    parser.add_argument("--enable-backdoor-attack", type=str, default="false",
+                        choices=["true", "false"])
+    parser.add_argument("--backdoor-eval-source", type=str, default="test", choices=["test", "train"])
+    parser.add_argument("--backdoor-eval-attack-portion", type=float, default=1.0)
 
     return parser.parse_args()
 
@@ -478,6 +500,8 @@ def build_main_command(args, dataset_name, level, method):
         "num_clients": args.num_clients,
         "times": args.times,
         "eval_gap": args.eval_gap,
+        "mia_pre_model_source": args.mia_pre_model_source,
+        "save_target_local_model_last": args.save_target_local_model_last.lower() == "true",
         "random_seed": args.seed,
         "target_client_id": args.target_client_id,
         "result_tag": result_tag,
@@ -512,9 +536,16 @@ def build_main_command(args, dataset_name, level, method):
         "fu_recovery_target_penalty": args.fu_recovery_target_penalty,
         "fu_recovery_lr_scale": args.fu_recovery_lr_scale,
         "protection_level": args.protection_level,
+        "backdoor_fedosd_target_client": args.backdoor_fedosd_target_client.lower() == "true",
+        "enable_backdoor_attack": args.enable_backdoor_attack.lower() == "true",
+        "backdoor_eval_source": args.backdoor_eval_source,
+        "backdoor_eval_attack_portion": args.backdoor_eval_attack_portion,
         "load_saved_model": False,
         "retrain_only": spec["retrain_only"],
     }
+
+    if method == "retrain":
+        desired_args["mia_pre_model_source"] = "global_model"
 
     if spec["load_saved_model"]:
         desired_args["load_saved_model"] = True
@@ -708,7 +739,11 @@ def collect_summary(args, variant_meta_by_level):
                 row["status"] = "complete" if eval_data else "missing"
                 if eval_data:
                     row["final_avg_acc"] = eval_data.get("average_accuracy")
+                    row["final_avg_acc_sample_weighted"] = eval_data.get("sample_weighted_average_accuracy")
                     row["final_avg_auc"] = eval_data.get("average_auc")
+                    row["final_avg_auc_sample_weighted"] = eval_data.get("sample_weighted_average_auc")
+                    row["final_standard_global_test_accuracy"] = eval_data.get("standard_global_test_accuracy")
+                    row["final_standard_global_test_auc"] = eval_data.get("standard_global_test_auc")
                     row["final_target_acc"] = safe_client_metric(eval_data, args.target_client_id)
                     row["final_retain_avg_acc"] = safe_client_metric(eval_data, args.target_client_id, retain=True)
                 row["final_mia_auc"] = attack_data.get("mia_auc")
@@ -792,10 +827,42 @@ def collect_summary(args, variant_meta_by_level):
             row["pre_avg_acc"] = pre_eval.get("average_accuracy") if pre_eval else None
             row["post_avg_acc"] = post_eval.get("average_accuracy") if post_eval else None
             row["recovery_avg_acc"] = recovery_eval.get("average_accuracy") if recovery_eval else None
+            row["pre_avg_acc_sample_weighted"] = (
+                pre_eval.get("sample_weighted_average_accuracy") if pre_eval else None
+            )
+            row["post_avg_acc_sample_weighted"] = (
+                post_eval.get("sample_weighted_average_accuracy") if post_eval else None
+            )
+            row["recovery_avg_acc_sample_weighted"] = (
+                recovery_eval.get("sample_weighted_average_accuracy") if recovery_eval else None
+            )
             row["final_avg_acc"] = (
                 recovery_eval.get("average_accuracy")
                 if recovery_eval
                 else post_eval.get("average_accuracy")
+                if post_eval
+                else None
+            )
+            row["final_avg_acc_sample_weighted"] = (
+                recovery_eval.get("sample_weighted_average_accuracy")
+                if recovery_eval
+                else post_eval.get("sample_weighted_average_accuracy")
+                if post_eval
+                else None
+            )
+            row["pre_standard_global_test_accuracy"] = (
+                pre_eval.get("standard_global_test_accuracy") if pre_eval else None
+            )
+            row["post_standard_global_test_accuracy"] = (
+                post_eval.get("standard_global_test_accuracy") if post_eval else None
+            )
+            row["recovery_standard_global_test_accuracy"] = (
+                recovery_eval.get("standard_global_test_accuracy") if recovery_eval else None
+            )
+            row["final_standard_global_test_accuracy"] = (
+                recovery_eval.get("standard_global_test_accuracy")
+                if recovery_eval
+                else post_eval.get("standard_global_test_accuracy")
                 if post_eval
                 else None
             )
