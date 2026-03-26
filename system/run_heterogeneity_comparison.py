@@ -79,6 +79,8 @@ MAIN_DEFAULTS = {
     "model": "ResNet18",
     "batch_size": 32,
     "local_learning_rate": 0.02,
+    "sgd_momentum": None,
+    "weight_decay": None,
     "global_rounds": 100,
     "local_epochs": 1,
     "algorithm": "FedAvg",
@@ -140,6 +142,8 @@ MAIN_ARG_FLAGS = {
     "model": "--model",
     "batch_size": "--batch_size",
     "local_learning_rate": "--local_learning_rate",
+    "sgd_momentum": "--sgd_momentum",
+    "weight_decay": "--weight_decay",
     "global_rounds": "--global_rounds",
     "local_epochs": "--local_epochs",
     "algorithm": "--algorithm",
@@ -237,6 +241,8 @@ def parse_args():
     parser.add_argument("--local-epochs", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--local-learning-rate", type=float, default=0.02)
+    parser.add_argument("--sgd-momentum", type=float, default=None)
+    parser.add_argument("--weight-decay", type=float, default=None)
     parser.add_argument("--join-ratio", type=float, default=1.0)
     parser.add_argument("--times", type=int, default=1)
     parser.add_argument("--eval-gap", type=int, default=1)
@@ -493,6 +499,8 @@ def build_main_command(args, dataset_name, level, method):
         "model": args.model,
         "batch_size": args.batch_size,
         "local_learning_rate": args.local_learning_rate,
+        "sgd_momentum": args.sgd_momentum,
+        "weight_decay": args.weight_decay,
         "global_rounds": args.global_rounds,
         "local_epochs": args.local_epochs,
         "algorithm": args.algorithm,

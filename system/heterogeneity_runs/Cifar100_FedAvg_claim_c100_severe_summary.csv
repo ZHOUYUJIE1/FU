@@ -1,0 +1,6 @@
+level,partition,alpha,num_clients,class_per_client,dataset,method,display_name,result_tag,status,pre_avg_acc,post_avg_acc,recovery_avg_acc,pre_avg_acc_sample_weighted,post_avg_acc_sample_weighted,recovery_avg_acc_sample_weighted,final_avg_acc,final_avg_acc_sample_weighted,pre_standard_global_test_accuracy,post_standard_global_test_accuracy,recovery_standard_global_test_accuracy,final_standard_global_test_accuracy,pre_target_acc,post_target_acc,final_target_acc,pre_retain_avg_acc,post_retain_avg_acc,final_retain_avg_acc,mia_pre_auc,mia_post_auc,mia_auc_drop,backdoor_pre_acc,backdoor_post_acc,final_mia_auc,final_backdoor_acc
+severe,dir,0.1,10,,Cifar100_claim_c100_severe,fu,FU,fu_severe,missing,,,,,,,,,,,,,,,,,,,,,,,,,
+severe,dir,0.1,10,,Cifar100_claim_c100_severe,fedau,FedAU,fedau_severe,missing,,,,,,,,,,,,,,,,,,,,,,,,,
+severe,dir,0.1,10,,Cifar100_claim_c100_severe,fedcsa,FedCSA,fedcsa_severe,missing,,,,,,,,,,,,,,,,,,,,,,,,,
+severe,dir,0.1,10,,Cifar100_claim_c100_severe,fedosd,FedOSD,fedosd_severe,missing,,,,,,,,,,,,,,,,,,,,,,,,,
+severe,dir,0.1,10,,Cifar100_claim_c100_severe,retrain,Retrain,retrain_severe,missing,,,,,,,,,,,,,,,,,,,,,,,,,

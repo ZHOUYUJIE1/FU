@@ -242,8 +242,11 @@ def save_experiment_config(args, seed):
         "fu_retain_calibration_rounds": getattr(args, "fu_retain_calibration_rounds", None),
         "fu_retain_calibration_lr": getattr(args, "fu_retain_calibration_lr", None),
         "fu_retain_calibration_batches": getattr(args, "fu_retain_calibration_batches", None),
+        "fu_lambda_reversal": getattr(args, "fu_lambda_reversal", None),
+        "fu_initial_mask_ratio": getattr(args, "fu_initial_mask_ratio", None),
         "fu_mask_retain_scale": getattr(args, "fu_mask_retain_scale", None),
         "fu_similarity_boost": getattr(args, "fu_similarity_boost", None),
+        "fu_ablation_mode": getattr(args, "fu_ablation_mode", None),
         "fu_select_best_recovery": getattr(args, "fu_select_best_recovery", None),
         "fu_recovery_target_penalty": getattr(args, "fu_recovery_target_penalty", None),
         "fu_recovery_lr_scale": getattr(args, "fu_recovery_lr_scale", None),
@@ -1102,6 +1105,10 @@ def apply_forgetting_result_side_effects(forget_result, server, args):
         print(f"已恢复遗忘结果附带的客户端buffer状态: {restored} 个客户端")
 
 
+def use_cifar_style_resnet_stem(dataset_name):
+    return any(token in str(dataset_name) for token in ("Cifar", "GTSRB"))
+
+
 def build_base_model(args, model_str):
     if model_str == "MLR":  # convex
         if "MNIST" in args.dataset:
@@ -1131,7 +1138,7 @@ def build_base_model(args, model_str):
     elif model_str == "ResNet18":
         model = resnet18(
             num_classes=args.num_classes,
-            cifar_stem="Cifar" in args.dataset,
+            cifar_stem=use_cifar_style_resnet_stem(args.dataset),
         ).to(args.device)
     elif model_str == "ResNet10":
         model = resnet10(num_classes=args.num_classes).to(args.device)
@@ -3327,12 +3334,23 @@ if __name__ == "__main__":
                         help="Maximum number of batches for gradient computation")
     parser.add_argument('-np', "--num_processes", type=int, default=4,
                         help="Number of processes for parallel gradient computation")
+    parser.add_argument(
+        '--fu_ablation_mode',
+        type=str,
+        default='full',
+        choices=['full', 'wo_h', 'wo_a', 'wo_u_mask', 'wo_retain'],
+        help="FU/FedHAU module ablation: full, wo_h, wo_a, wo_u_mask, or wo_retain",
+    )
     parser.add_argument('--fu_retain_calibration_rounds', type=int, default=2,
                         help="Extra masked retain-calibration rounds inside FU after gradient reversal")
     parser.add_argument('--fu_retain_calibration_lr', type=float, default=4e-4,
                         help="Learning rate for FU retain calibration")
     parser.add_argument('--fu_retain_calibration_batches', type=int, default=3,
                         help="Max batches per retain client in each FU retain calibration round")
+    parser.add_argument('--fu_lambda_reversal', type=float, default=0.3,
+                        help="Base gradient-reversal coefficient used by FU")
+    parser.add_argument('--fu_initial_mask_ratio', type=float, default=0.1,
+                        help="Initial top-ratio used when generating the FU forget mask")
     parser.add_argument('--fu_mask_retain_scale', type=float, default=0.12,
                         help="Gradient scale kept on FU forget-mask parameters during retain calibration")
     parser.add_argument('--fu_similarity_boost', type=float, default=1.2,

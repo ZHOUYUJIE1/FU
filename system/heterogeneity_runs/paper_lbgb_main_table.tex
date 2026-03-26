@@ -1,0 +1,28 @@
+\begin{table*}[t]
+\centering
+\caption{CIFAR-10 heterogeneity results using the exact evaluation protocol emphasized in our paper. Target-client accuracies are measured on local buffers (LB), while utility is measured on global buffers (GB). Lower target accuracy, Retrain distance, and MIA AUC are better; higher retained-client accuracy is better. FU, FedCSA, and FedOSD share the same pre-unlearning checkpoint in these runs, so their pre-unlearning LB/GB metrics are directly comparable. FedAU is trained separately because it requires training-time cache states.}
+\label{tab:lbgb_main_results}
+\begin{tabular}{llcccccc}
+\toprule
+Level & Method & LB Target Before & LB Target After & GB Global Before & GB Retained After & Dist. to Retrain & Post MIA AUC \\
+\midrule
+Mild & FU & 0.717 & \textbf{0.151} & 0.701 & 0.791 & \textbf{0.130} & 0.495 \\
+ & FedAU & 0.835 & 0.387 & 0.819 & 0.779 & 0.367 & 0.487 \\
+ & FedCSA & 0.717 & 0.548 & 0.701 & 0.845 & 0.529 & \textbf{0.486} \\
+ & FedOSD & 0.717 & 0.485 & 0.701 & \textbf{0.870} & 0.470 & 0.487 \\
+ & Retrain & -- & 0.021 & -- & 0.801 & -- & 0.470 \\
+\midrule
+Moderate & FU & 0.309 & 0.171 & 0.723 & 0.776 & 0.184 & \textbf{0.481} \\
+ & FedAU & 0.592 & \textbf{0.013} & 0.673 & 0.568 & 0.275 & 0.504 \\
+ & FedCSA & 0.309 & 0.237 & 0.723 & 0.745 & 0.257 & 0.490 \\
+ & FedOSD & 0.309 & 0.056 & 0.723 & \textbf{0.805} & \textbf{0.068} & 0.482 \\
+ & Retrain & -- & 0.000 & -- & 0.843 & -- & 0.481 \\
+\midrule
+Severe & FU & 0.496 & 0.067 & 0.538 & \textbf{0.598} & \textbf{0.078} & \textbf{0.494} \\
+ & FedAU & 0.116 & \textbf{0.033} & 0.347 & 0.324 & 0.210 & 0.494 \\
+ & FedCSA & 0.496 & 0.249 & 0.538 & 0.492 & 0.231 & 0.498 \\
+ & FedOSD & 0.496 & 0.410 & 0.538 & 0.565 & 0.389 & 0.495 \\
+ & Retrain & -- & 0.022 & -- & 0.534 & -- & 0.489 \\
+\bottomrule
+\end{tabular}
+\end{table*}

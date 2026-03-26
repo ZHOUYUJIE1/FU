@@ -6,12 +6,24 @@ from functools import lru_cache
 from torchvision import transforms
 
 
+_THREE_CHANNEL_MEAN = torch.tensor((0.5, 0.5, 0.5), dtype=torch.float32).view(3, 1, 1)
+_THREE_CHANNEL_STD = torch.tensor((0.5, 0.5, 0.5), dtype=torch.float32).view(3, 1, 1)
+
 _CIFAR_SPATIAL_TRAIN_TRANSFORM = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
 ])
-_CIFAR_MEAN = torch.tensor((0.5, 0.5, 0.5), dtype=torch.float32).view(3, 1, 1)
-_CIFAR_STD = torch.tensor((0.5, 0.5, 0.5), dtype=torch.float32).view(3, 1, 1)
+_GTSRB_SPATIAL_TRAIN_TRANSFORM = transforms.Compose([
+    transforms.RandomCrop(32, padding=4),
+])
+_TINYIMAGENET_SPATIAL_TRAIN_TRANSFORM = transforms.Compose([
+    transforms.RandomCrop(64, padding=8),
+    transforms.RandomHorizontalFlip(),
+])
+_STL10_SPATIAL_TRAIN_TRANSFORM = transforms.Compose([
+    transforms.RandomCrop(96, padding=12),
+    transforms.RandomHorizontalFlip(),
+])
 
 
 @lru_cache(maxsize=256)
@@ -35,16 +47,52 @@ def clear_data_cache():
     _read_npz_payload.cache_clear()
 
 
-def _apply_cifar_train_transform(x):
-    # CIFAR tensors are stored after Normalize(0.5, 0.5, 0.5); restore to [0, 1]
-    # before spatial augmentation, then normalize back to the training scale.
-    mean = _CIFAR_MEAN.to(device=x.device, dtype=x.dtype)
-    std = _CIFAR_STD.to(device=x.device, dtype=x.dtype)
+def _apply_normalized_train_transform(x, spatial_transform, mean, std):
+    # Stored tensors are already normalized; restore them to [0, 1], apply
+    # dataset-specific spatial augmentation, then normalize back.
+    mean = mean.to(device=x.device, dtype=x.dtype)
+    std = std.to(device=x.device, dtype=x.dtype)
     x = x * std + mean
     x = x.clamp_(0.0, 1.0)
-    x = _CIFAR_SPATIAL_TRAIN_TRANSFORM(x)
+    x = spatial_transform(x)
     x = (x - mean) / std
     return x
+
+
+def _apply_cifar_train_transform(x):
+    return _apply_normalized_train_transform(
+        x,
+        _CIFAR_SPATIAL_TRAIN_TRANSFORM,
+        _THREE_CHANNEL_MEAN,
+        _THREE_CHANNEL_STD,
+    )
+
+
+def _apply_gtsrb_train_transform(x):
+    return _apply_normalized_train_transform(
+        x,
+        _GTSRB_SPATIAL_TRAIN_TRANSFORM,
+        _THREE_CHANNEL_MEAN,
+        _THREE_CHANNEL_STD,
+    )
+
+
+def _apply_tinyimagenet_train_transform(x):
+    return _apply_normalized_train_transform(
+        x,
+        _TINYIMAGENET_SPATIAL_TRAIN_TRANSFORM,
+        _THREE_CHANNEL_MEAN,
+        _THREE_CHANNEL_STD,
+    )
+
+
+def _apply_stl10_train_transform(x):
+    return _apply_normalized_train_transform(
+        x,
+        _STL10_SPATIAL_TRAIN_TRANSFORM,
+        _THREE_CHANNEL_MEAN,
+        _THREE_CHANNEL_STD,
+    )
 
 
 def read_client_data(dataset, idx, is_train=True, few_shot=0, apply_train_transform=True):
@@ -77,6 +125,12 @@ def process_image(data, dataset="", is_train=True, apply_train_transform=True):
     y = torch.Tensor(data['y']).type(torch.int64)
     if apply_train_transform and is_train and "Cifar" in dataset:
         return [(_apply_cifar_train_transform(x), label) for x, label in zip(X, y)]
+    if apply_train_transform and is_train and "GTSRB" in dataset:
+        return [(_apply_gtsrb_train_transform(x), label) for x, label in zip(X, y)]
+    if apply_train_transform and is_train and "TinyImagenet" in dataset:
+        return [(_apply_tinyimagenet_train_transform(x), label) for x, label in zip(X, y)]
+    if apply_train_transform and is_train and "STL10" in dataset:
+        return [(_apply_stl10_train_transform(x), label) for x, label in zip(X, y)]
     return [(x, y) for x, y in zip(X, y)]
 
 

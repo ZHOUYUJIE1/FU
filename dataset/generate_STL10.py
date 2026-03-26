@@ -11,15 +11,13 @@ from utils.dataset_utils import check, separate_data, split_data, save_file
 random.seed(1)
 np.random.seed(1)
 num_clients = 20
-dir_path = "GTSRB/"
+dir_path = "STL10/"
 
 
-# Allocate data to users
-def generate_dataset(dir_path, num_clients, niid, balance, partition, class_per_client=4):
+def generate_dataset(dir_path, num_clients, niid, balance, partition, class_per_client=2):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
-        
-    # Setup directory for train/test data
+
     config_path = dir_path + "config.json"
     train_path = dir_path + "train/"
     test_path = dir_path + "test/"
@@ -38,25 +36,29 @@ def generate_dataset(dir_path, num_clients, niid, balance, partition, class_per_
     ):
         return
 
-    dataset_image = []
-    dataset_label = []
-        
-    # Get GTSRB data
     transform = transforms.Compose(
-        [transforms.Resize((32, 32)), 
-        transforms.ToTensor(), 
-        transforms.Normalize((0.5), (0.5))]
+        [
+            transforms.Resize((96, 96)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ]
     )
 
-    def load_data(split="train"):
-        trainset = torchvision.datasets.GTSRB(
-            root=dir_path+"rawdata", split=split, download=True, transform=transform)
-        trainloader = torch.utils.data.DataLoader(
-            trainset, batch_size=len(trainset), shuffle=False)
-        for _, train_data in enumerate(trainloader, 0):
-            trainset.data, trainset.targets = train_data
-        dataset_image.extend(trainset.data.cpu().detach().numpy())
-        dataset_label.extend(trainset.targets.cpu().detach().numpy())
+    dataset_image = []
+    dataset_label = []
+
+    def load_data(split):
+        dataset = torchvision.datasets.STL10(
+            root=dir_path + "rawdata",
+            split=split,
+            download=True,
+            transform=transform,
+        )
+        loader = torch.utils.data.DataLoader(dataset, batch_size=len(dataset), shuffle=False)
+        for _, batch in enumerate(loader, 0):
+            dataset.data, dataset.labels = batch
+        dataset_image.extend(dataset.data.cpu().detach().numpy())
+        dataset_label.extend(dataset.labels.cpu().detach().numpy())
 
     load_data("train")
     load_data("test")
@@ -65,7 +67,7 @@ def generate_dataset(dir_path, num_clients, niid, balance, partition, class_per_
     dataset_label = np.array(dataset_label)
 
     num_classes = len(set(dataset_label))
-    print(f'Number of classes: {num_classes}')
+    print(f"Number of classes: {num_classes}")
 
     X, y, statistic = separate_data(
         (dataset_image, dataset_label),

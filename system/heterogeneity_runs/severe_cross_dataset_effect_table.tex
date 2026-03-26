@@ -1,0 +1,30 @@
+\begin{table*}[t]
+\centering
+\caption{Forgetting-impact view under severe heterogeneity. Retrain is omitted because pre/post deltas are not directly defined in the exported summaries. More negative Target Acc Change means stronger forgetting on the target client; larger Others Acc Change Avg and MIA AUC Drop indicate better retain preservation and stronger privacy gain, respectively.}
+\label{tab:severe_cross_dataset_effect}
+\begin{tabular}{llccc}
+\toprule
+Dataset & Method & Target Acc Change $\downarrow$ & Others Acc Change Avg $\uparrow$ & MIA AUC Drop $\uparrow$ \\
+\midrule
+CIFAR-10 & FU & \textbf{-0.429} & \textbf{0.213} & \textbf{0.015} \\
+ & FedAU & -0.083 & -0.067 & 0.011 \\
+ & FedCSA & -0.206 & 0.058 & 0.012 \\
+ & FedOSD & -0.086 & -0.045 & 0.014 \\
+\midrule
+GTSRB & FU & -0.532 & -0.021 & \textbf{0.031} \\
+ & FedAU & \textbf{-0.807} & -0.047 & 0.022 \\
+ & FedCSA & -0.217 & \textbf{0.024} & 0.016 \\
+ & FedOSD & -0.648 & -0.073 & 0.013 \\
+\midrule
+STL10 & FU & -0.332 & \textbf{0.152} & -0.001 \\
+ & FedAU & \textbf{-0.735} & -0.025 & \textbf{0.132} \\
+ & FedCSA & -0.191 & 0.137 & -0.011 \\
+ & FedOSD & -0.222 & -0.013 & -0.044 \\
+\midrule
+Tiny-ImageNet & FU & -0.158 & \textbf{0.080} & \textbf{0.064} \\
+ & FedAU & \textbf{-0.172} & -0.006 & 0.021 \\
+ & FedCSA & -0.154 & 0.076 & 0.022 \\
+ & FedOSD & -0.060 & -0.001 & 0.020 \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -1,0 +1,34 @@
+\begin{table*}[t]
+\centering
+\caption{Severe Dirichlet heterogeneity ($\alpha=0.1$) across four image datasets. Higher Final Avg Acc and Final Retain Avg Acc are better; lower Final Target Acc and Final MIA AUC are better. Best value in each dataset/metric block is boldfaced.}
+\label{tab:severe_cross_dataset_main}
+\begin{tabular}{llcccc}
+\toprule
+Dataset & Method & Final Avg Acc $\uparrow$ & Final Target Acc $\downarrow$ & Final Retain Avg Acc $\uparrow$ & Final MIA AUC $\downarrow$ \\
+\midrule
+CIFAR-10 & FU & \textbf{0.527} & 0.067 & \textbf{0.578} & 0.494 \\
+ & FedAU & 0.259 & 0.033 & 0.284 & 0.494 \\
+ & FedCSA & 0.352 & 0.249 & 0.363 & 0.497 \\
+ & FedOSD & 0.329 & 0.410 & 0.320 & 0.495 \\
+ & Retrain & 0.326 & \textbf{0.022} & 0.360 & \textbf{0.489} \\
+\midrule
+GTSRB & FU & 0.894 & 0.411 & 0.948 & \textbf{0.477} \\
+ & FedAU & 0.642 & 0.008 & 0.712 & 0.485 \\
+ & FedCSA & \textbf{0.966} & 0.726 & \textbf{0.993} & 0.492 \\
+ & FedOSD & 0.836 & 0.295 & 0.896 & 0.496 \\
+ & Retrain & 0.820 & \textbf{0.000} & 0.911 & 0.511 \\
+\midrule
+STL10 & FU & 0.586 & 0.209 & \textbf{0.628} & 0.456 \\
+ & FedAU & 0.368 & 0.062 & 0.402 & \textbf{0.427} \\
+ & FedCSA & \textbf{0.587} & 0.351 & 0.613 & 0.466 \\
+ & FedOSD & 0.449 & 0.320 & 0.463 & 0.499 \\
+ & Retrain & 0.383 & \textbf{0.006} & 0.425 & 0.470 \\
+\midrule
+Tiny-ImageNet & FU & \textbf{0.368} & 0.118 & \textbf{0.396} & 0.527 \\
+ & FedAU & 0.266 & 0.066 & 0.288 & 0.537 \\
+ & FedCSA & 0.365 & 0.123 & 0.392 & 0.569 \\
+ & FedOSD & 0.305 & 0.216 & 0.315 & 0.571 \\
+ & Retrain & 0.274 & \textbf{0.000} & 0.304 & \textbf{0.512} \\
+\bottomrule
+\end{tabular}
+\end{table*}

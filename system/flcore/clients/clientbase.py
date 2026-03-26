@@ -9,6 +9,13 @@ from sklearn import metrics
 from utils.data_utils import read_client_data
 
 
+def _use_image_sgd_defaults(dataset_name):
+    return any(
+        token in str(dataset_name)
+        for token in ("Cifar", "GTSRB", "TinyImagenet", "STL10")
+    )
+
+
 class Client(object):
     """
     Base class for clients in federated learning.
@@ -61,8 +68,8 @@ class Client(object):
         self.send_time_cost = {'num_rounds': 0, 'total_cost': 0.0}
 
         self.loss = nn.CrossEntropyLoss()
-        default_momentum = 0.9 if "Cifar" in self.dataset else 0.0
-        default_weight_decay = 5e-4 if "Cifar" in self.dataset else 0.0
+        default_momentum = 0.9 if _use_image_sgd_defaults(self.dataset) else 0.0
+        default_weight_decay = 5e-4 if _use_image_sgd_defaults(self.dataset) else 0.0
         momentum = getattr(args, "sgd_momentum", None)
         weight_decay = getattr(args, "weight_decay", None)
         if momentum is None:
